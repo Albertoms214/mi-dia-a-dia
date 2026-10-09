@@ -228,6 +228,8 @@ tfoot td{font-weight:800;border-top:1px solid var(--muted)}
 .seg button{padding:9px;border-radius:10px;font-weight:700;color:var(--muted);font-size:.9rem}
 .seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
 .addbar{display:flex;gap:8px}
+.ctxtag{align-self:flex-start;display:inline-flex;align-items:center;gap:7px;font-size:.78rem;font-weight:700;letter-spacing:.02em;color:var(--fg);background:var(--s2);border:1px solid var(--line);border-radius:999px;padding:6px 12px}
+.ctxtag svg{width:15px;height:15px}
 .addbar .inp{flex:1;padding:13px 14px;font-size:1rem;font-weight:500}
 .addbar .inp:focus{border-color:var(--fg)}
 .addbtn{width:50px;height:50px;border-radius:15px;background:var(--fg);color:var(--bg);display:grid;place-items:center;flex:none}
@@ -415,6 +417,9 @@ const KEYWORDS={
 /* ---------- estado ---------- */
 const S={months:{},cats:CATS_DEFAULT.map(c=>({...c})),ym:CUR,year:+CUR.slice(0,4),tab:'inicio',app:'hub',anuales:[],ready:false,mode:null,open:{},confirm:null};
 let col=null,dl=null;
+const D={main:{months:S.months,cats:S.cats,anuales:S.anuales},cj:{months:{},cats:CATS_DEFAULT.map(c=>({...c})),anuales:[]}};S.ctx='main';
+for(const k of ['months','cats','anuales'])Object.defineProperty(S,k,{get(){return D[S.ctx][k]},set(v){D[S.ctx][k]=v},enumerable:true,configurable:true});
+const px=()=>S.ctx==='cj'?'c':'';
 /* ---------- almacenamiento en el dispositivo (IndexedDB, con localStorage de reserva) ---------- */
 const KV={m:{},db:null};
 function kvGet(k){return Object.prototype.hasOwnProperty.call(KV.m,k)?KV.m[k]:null}
@@ -440,8 +445,10 @@ function fixCats(cats){return cats.map(c=>({...c,color:OLD2NEW[c.color]||c.color
 
 /* ---------- guardado ---------- */
 const LS='libreta-gastos-v1';
-function loadLocal(){try{const d=JSON.parse(kvGet(LS)||'null');if(d){S.months=d.months||{};if(Array.isArray(d.anuales))S.anuales=d.anuales;if(d.cats&&d.cats.length)S.cats=fixCats(d.cats)}}catch(e){}}
-function saveLocal(){try{kvSet(LS,JSON.stringify({months:S.months,cats:S.cats,anuales:S.anuales}))}catch(e){toast('No se ha podido guardar en este navegador.')}}
+const LSC='mi-dia-conjuntos-v1';
+function loadLocal(){
+  for(const [c,k] of [['main',LS],['cj',LSC]])try{const d=JSON.parse(kvGet(k)||'null');if(d){const T=D[c];T.months=d.months||{};if(Array.isArray(d.anuales))T.anuales=d.anuales;if(d.cats&&d.cats.length)T.cats=fixCats(d.cats)}}catch(e){}}
+function saveLocal(){try{kvSet(LS,JSON.stringify(D.main));kvSet(LSC,JSON.stringify(D.cj))}catch(e){toast('No se ha podido guardar en este navegador.')}}
 const pend={},busy={};
 function writeDoc(key,data){
   if(S.mode!=='db'){if(key.startsWith('t-'))saveTasksLocal();else if(key.startsWith('g-'))saveGiftsLocal();else if(key.startsWith('h-'))saveHouseLocal();else saveLocal();return}
@@ -450,18 +457,19 @@ function writeDoc(key,data){
     try{if(d.__del)await col.doc(key).delete();else await col.doc(key).set(d)}catch(e){toast('No se ha guardado el cambio ('+((e&&e.code)||'error')+'). Repítelo con conexión.')}}
     busy[key]=false})();
 }
-function saveMonth(ym){const m=peek(ym);writeDoc('m-'+ym,{ym,ing:m.ing,gas:m.gas,t:Date.now()})}
-function saveCats(){writeDoc('ajustes',{cats:S.cats,t:Date.now()})}
-function saveAnuales(){writeDoc('anuales',{items:S.anuales,t:Date.now()})}
-function applySnap(snap){
-  const months={};let cats=null;
+function saveMonth(ym){const m=peek(ym);writeDoc(px()+'m-'+ym,{ym,ing:m.ing,gas:m.gas,t:Date.now()})}
+function saveCats(){writeDoc(px()+'ajustes',{cats:S.cats,t:Date.now()})}
+function saveAnuales(){writeDoc(px()+'anuales',{items:S.anuales,t:Date.now()})}
+function snapCtx(snap,c,p){
+  const T=D[c],months={};let cats=null,L=p.length+2;
   for(const d of snap.docs){const v=plain(d);
-    if(d.id==='ajustes'){if(!busy.ajustes&&Array.isArray(v.cats)&&v.cats.length)cats=v.cats}
-    else if(d.id==='anuales'){if(!busy.anuales&&Array.isArray(v.items))S.anuales=v.items}
-    else if(d.id.startsWith('m-')){const ym=d.id.slice(2);months[ym]=busy[d.id]?peek(ym):{ing:Array.isArray(v.ing)?v.ing:[],gas:Array.isArray(v.gas)?v.gas:[]}}}
-  for(const k in busy){if(busy[k]&&k.startsWith('m-'))months[k.slice(2)]=peek(k.slice(2))}
-  S.months=months; if(cats)S.cats=fixCats(cats);
+    if(d.id===p+'ajustes'){if(!busy[d.id]&&Array.isArray(v.cats)&&v.cats.length)cats=v.cats}
+    else if(d.id===p+'anuales'){if(!busy[d.id]&&Array.isArray(v.items))T.anuales=v.items}
+    else if(d.id.startsWith(p+'m-')){const ym=d.id.slice(L);months[ym]=busy[d.id]?(T.months[ym]||{ing:[],gas:[]}):{ing:Array.isArray(v.ing)?v.ing:[],gas:Array.isArray(v.gas)?v.gas:[]}}}
+  for(const k in busy){if(busy[k]&&k.startsWith(p+'m-'))months[k.slice(L)]=T.months[k.slice(L)]||{ing:[],gas:[]}}
+  T.months=months;if(cats)T.cats=fixCats(cats);
 }
+function applySnap(snap){snapCtx(snap,'main','');snapCtx(snap,'cj','c')}
 
 function plain(d){try{return JSON.parse(JSON.stringify(d.data()||{}))}catch(e){return {}}}
 /* ---------- categoría sugerida ---------- */
@@ -493,6 +501,7 @@ function renderGastos(){
   const v=$('#view');
   if(!S.ready){v.innerHTML='<div class="loading">Abriendo tu libreta…</div>';return}
   v.innerHTML=S.tab==='inicio'?viewInicio():S.tab==='categorias'?viewCats():S.tab==='historial'?viewHist():S.tab==='anuales'?viewAnuales():viewAjustes();
+  if(S.ctx==='cj'){v.insertAdjacentHTML('afterbegin',`<div class="ctxtag">${ic('users')} Presupuestos conjuntos</div>`)}
 }
 
 function balanceCard(label,ti,tg,ioActs){
@@ -737,7 +746,7 @@ const P=s=>String(s).replace(/[  ]/g,' ');
 function hexRgb(h){h=h.replace('#','');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]}
 function pdfFrame(doc,title,sub){
   doc.setFillColor(10,14,17);doc.rect(0,0,210,44,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(127,224,194);doc.text('LIBRETA DE GASTOS',14,15);
+  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(127,224,194);doc.text(S.ctx==='cj'?'PRESUPUESTOS CONJUNTOS':'LIBRETA DE GASTOS',14,15);
   doc.setFontSize(22);doc.setTextColor(255,255,255);doc.text(P(title),14,27);
   doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(140,153,164);doc.text(P(sub),14,35);
 }
@@ -788,7 +797,7 @@ async function exportPDF(kind){
   if(!dl){toast('Las descargas no están disponibles en esta vista.');return}
   if(!window.jspdf||!window.jspdf.jsPDF){toast('El generador de PDF no ha cargado. Recarga la página.');return}
   let doc,name;
-  try{if(kind==='mes'){doc=buildMonthPDF(S.ym);name='gastos-'+S.ym+'.pdf'}else{doc=buildYearPDF(S.year);name='gastos-'+S.year+'.pdf'}}
+  try{if(kind==='mes'){doc=buildMonthPDF(S.ym);name=(S.ctx==='cj'?'conjuntos-':'gastos-')+S.ym+'.pdf'}else{doc=buildYearPDF(S.year);name=(S.ctx==='cj'?'conjuntos-':'gastos-')+S.year+'.pdf'}}
   catch(e){toast('No se ha podido crear el PDF.');return}
   try{await dl.save({filename:name,data:doc.output('blob')});toast('PDF guardado')}
   catch(e){const c=e&&e.code;if(c==='declined')return;if(c==='rate_limited'){toast('Ya hay una descarga pendiente.');return}toast('No se ha podido descargar el PDF ('+(c||'error')+').')}
@@ -824,7 +833,7 @@ function dur(ms,long){ms=Math.max(0,ms);const m=Math.floor(ms/60000),h=Math.floo
   return long?d+(d===1?' día ':' días ')+(h%24)+' h':d+' d';}
 function isoDay(ms){const d=new Date(ms);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 
-function go(app){S.app=app;TK.open=null;TK.confirm=null;closeSheet();render();window.scrollTo(0,0)}
+function go(app){S.ctx=app==='conjuntos'?'cj':'main';S.app=app==='conjuntos'?'gastos':app;TK.open=null;TK.confirm=null;closeSheet();render();window.scrollTo(0,0)}
 function render(){
   document.body.classList.toggle('no-tabbar',S.app!=='gastos');
   document.querySelector('.tabbar').hidden=S.app!=='gastos';
@@ -843,6 +852,7 @@ function renderHub(){
     <h1>Mi día a día</h1><div class="greet">${greet}</div>
     <div class="apps">
       <button class="appbtn" data-act="open" data-app="gastos"><span class="tile">${ic('wallet')}</span><span class="nm">Presupuestos</span></button>
+      <button class="appbtn" data-act="open" data-app="conjuntos"><span class="tile">${ic('users')}</span><span class="nm">Presupuestos conjuntos</span></button>
       <button class="appbtn" data-act="open" data-app="tareas"><span class="tile">${ic('tasks')}</span>${np?`<span class="badge">${np}</span>`:''}<span class="nm">Tareas pendientes</span></button>
       <button class="appbtn" data-act="open" data-app="regalos"><span class="tile">${ic('gift')}</span><span class="nm">Cosas que regalar</span></button>
       <button class="appbtn" data-act="open" data-app="medidas"><span class="tile">${ic('ruler')}</span><span class="nm">Medidas casa</span></button>
@@ -925,7 +935,7 @@ document.addEventListener('focusout',e=>{if(e.target.dataset&&e.target.dataset.t
 
 
 /* ================= COSAS QUE REGALAR ================= */
-const GK={people:[],open:{},gopen:null,price:null,confirm:null};
+const GK={people:[],open:{},gopen:null,price:null,confirm:null,bulk:false,bulkText:''};
 const LSG='mi-dia-regalos-v1';
 function ensureYo(){if(!GK.people.some(p=>p.yo))GK.people.unshift({id:'yo',nombre:'Yo',yo:true,creada:0,regalos:[]})}
 function loadGiftsLocal(){try{const d=JSON.parse(kvGet(LSG)||'null');if(Array.isArray(d))GK.people=d}catch(e){}ensureYo()}
@@ -953,6 +963,7 @@ function renderRegalos(){
   const all=GK.people.flatMap(p=>p.yo?[]:p.regalos),pend=all.filter(g=>!g.hecho).length;
   let h=`<div class="gsum"><div><span>Gastado</span><b>${eur(giftSpent())}</b></div><div><span>Por regalar</span><b>${pend}</b></div></div>`;
   h+=`<div class="addbar"><input class="inp" id="gNewP" maxlength="40" autocomplete="off" placeholder="Añadir persona…" aria-label="Nueva persona" enterkeyhint="done"><button class="addbtn" data-act="gAddP" aria-label="Añadir persona">${ic('userplus')}</button></div>`;
+  h+=GK.bulk?bulkHTML():`<button class="btn mini" data-act="gBulk" style="align-self:flex-start">${ic('plus')} Añadir varios de golpe</button>`;
   h+='<div class="plist">'+peopleSorted().map(personHTML).join('')+'</div>';
   if(GK.people.length===1)h+=`<p class="note">Escribe arriba el nombre de alguien para empezar a apuntarle ideas.</p>`;
   $('#view').innerHTML=`<div class="wrap screen" style="gap:14px">${h}</div>`;
@@ -1025,6 +1036,51 @@ function pDel(id){const p=person(id);if(!p||p.yo)return;if(GK.confirm!=='p:'+id)
   GK.confirm=null;if(AS)for(const g of p.regalos)if(g.foto)AS.delete(g.foto).catch(()=>{});GK.people=GK.people.filter(x=>x.id!==id);delete GK.open[id];
   if(S.mode==='db'){delPend.add('g-'+id);writeDoc('g-'+id,{__del:true});setTimeout(()=>delPend.delete('g-'+id),15000)}else saveGiftsLocal();
   renderRegalos();toast(p.nombre+' borrado de la lista')}
+
+/* --- Añadir varios --- */
+const BULK_PRELOAD="Yo:\nDrones\nUpgreen smart finder\nEscalada\nRafting\nFunda safariland\nGuantes mechanic\nCinturón paisano safariland\nFiltro de agua\nSubmarinismo\nCartera para placa policía\nRocodromo\nMaquinilla de afeitar\nPala\nPendrive con código\nCascos cancelación de ruido\n\nEnrique y Maricarmen:\nMolinillo viento\nAlfombrillas coche\nManta coche para perro\n\nGorda:\nManta coche para perro\nSujetador Victoria's Secret\nIr al ACTION\nCepillo para mover matcha\nEquipo música coche\nFiguras de Disney\nACEITE DEL RICO!!!\nColores para pintar\nAceite El Corte Inglés bueno\nFigura novia cadáver\nPlacas suelo para pilates\nTapacubos\nAlfombrillas\nSilvanian\nJuguete x\nSet de lápices de colores gigante Costco\nReloj de Xiaomi S4\nMINERALES\nJOSE LUIS\nSwitch\nEsqueje planta cara\nFerreros\nInvernadero\nAlgo para plantar esquejes\nHuerto urbano\nTintado lunas\nNintendo DS\nPlantas (monstera)\nRopa Duki\nMatrículas\nAlgo personalizado con nuestra fecha\nBarbie\nAbrigo\nChaqueta Levis oversize\nColonia Britney Spears\nCharms Pandora\nMonster High\nAlfombrillas coche\nFundas móvil\nAnillo para pasar vídeos TikTok\nAuriculares Vieta\n\nYeray:\nCargador automático BBs\n\nÁlvaro:\nCapitán Calzoncillos\nCamiseta fútbol\n\nPapa y mamá:\nAparato para pasar de cinta a DVD";
+function parseBulk(txt){
+  const out=[];let cur=null;
+  const person=n=>{const k=n.trim();let o=out.find(x=>x.n.toLowerCase()===k.toLowerCase());if(!o){o={n:k,items:[]};out.push(o)}return o};
+  for(let raw of String(txt||'').split(/\r?\n/)){
+    let l=raw.trim();if(!l)continue;
+    l=l.replace(/^#+\s*/,'');
+    const m=l.match(/^([^:]{1,40}):\s*(.*)$/);
+    if(m){cur=person(m[1]);l=m[2].trim();if(!l)continue}
+    else if(/^#/.test(raw.trim())){cur=person(l);continue}
+    if(!cur)cur=person('Yo');
+    l=l.slice(0,80);if(l)cur.items.push({texto:l});
+  }
+  return out.filter(x=>x.items.length);
+}
+function bulkSummary(){const r=parseBulk(GK.bulkText);const n=r.reduce((a,x)=>a+x.items.length,0);
+  return r.length?`${n} ${n===1?'regalo':'regalos'} para ${r.length} ${r.length===1?'persona':'personas'}: `+r.map(x=>`${esc(x.n)} (${x.items.length})`).join(', '):'Escribe o pega la lista.'}
+function bulkHTML(){
+  return `<div class="panel" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+    <b>Añadir varios de golpe</b>
+    <p class="empty" style="padding:0;margin:0;text-align:left">Una línea por regalo. Pon el nombre de la persona en una línea con dos puntos (<i>Mamá:</i>) y debajo sus regalos. «Yo» es tu lista.</p>
+    <textarea class="inp" id="bulkTxt" style="min-height:220px;font-weight:500;line-height:1.5;font-family:var(--f)" placeholder="Yo:&#10;Drones&#10;Cascos&#10;&#10;Mamá:&#10;Perfume&#10;Bufanda" aria-label="Lista de regalos">${esc(GK.bulkText)}</textarea>
+    <div class="note" id="bulkSum" style="margin:0">${bulkSummary()}</div>
+    <div class="row2" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn white mini" data-act="gBulkOk">Añadir todo</button><button class="btn mini" data-act="gBulk">Cancelar</button>${BULK_PRELOAD?`<button class="btn mini" data-act="gBulkFill">Rellenar con mi lista de cumpleaños</button>`:''}</div>
+  </div>`;
+}
+function gBulkOk(){
+  const r=parseBulk(GK.bulkText);if(!r.length){toast('No hay nada que añadir.');return}
+  let nP=0,nG=0,t=Date.now();const touched=new Set();
+  for(const x of r){
+    let p=/^(yo|m[ií])$/i.test(x.n)?GK.people.find(q=>q.yo):GK.people.find(q=>!q.yo&&q.nombre.toLowerCase()===x.n.toLowerCase());
+    if(!p){p={id:newId(),nombre:x.n,yo:false,creada:t++,regalos:[]};GK.people.push(p);nP++}
+    for(const it of x.items){
+      if(p.regalos.some(g=>g.texto.toLowerCase()===it.texto.toLowerCase()))continue;
+      p.regalos.push({id:newId(),texto:it.texto,nota:'',hecho:false,precio:null,creado:t++,hechoEn:null});nG++;
+    }
+    touched.add(p);
+  }
+  for(const p of touched)savePerson(p);
+  GK.bulk=false;GK.bulkText='';renderRegalos();window.scrollTo(0,0);
+  toast(nG?`Añadidos ${nG} regalos`+(nP?` y ${nP} personas nuevas`:''):'Todo estaba ya en la lista');
+}
+document.addEventListener('input',e=>{if(e.target.id!=='bulkTxt')return;GK.bulkText=e.target.value;const s=$('#bulkSum');if(s)s.innerHTML=bulkSummary()});
 const gTimers={};
 document.addEventListener('input',e=>{const ds=e.target.dataset;if(!ds||!(ds.gedit||ds.gnote||ds.gprice||ds.pname))return;
   const p=person(ds.p||ds.pname);if(!p)return;
@@ -1213,7 +1269,7 @@ function openBackup(){
   SH={kind:'backup'};
   const imp=S.pendingImport;
   $('#sheet').innerHTML=`<div class="grab"></div><div class="sh"><h2>Copia de seguridad</h2><button type="button" class="round" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
-  <p class="empty" style="padding:8px 0">Guarda en un archivo todos tus datos (gastos, gastos anuales, tareas, regalos y medidas, con sus fotos) o recupéralos desde una copia.</p>
+  <p class="empty" style="padding:8px 0">Guarda en un archivo todos tus datos (gastos, presupuestos conjuntos, gastos anuales, tareas, regalos y medidas, con sus fotos) o recupéralos desde una copia.</p>
   <div style="display:flex;flex-direction:column;gap:10px">
     <button class="btn white full" data-act="exportData" ${dl?'':'disabled'}>${ic('pdf')} Exportar copia</button>
     <label class="btn full photo-btn">${ic('undo')} Importar una copia<input type="file" accept="application/json,.json" data-import="1"></label>
@@ -1226,7 +1282,7 @@ function openBackup(){
 }
 async function exportData(){
   if(!dl){toast('Las descargas no están disponibles aquí.');return}
-  const data=JSON.parse(JSON.stringify({app:'mi-dia-a-dia',version:1,exportado:Date.now(),months:S.months,cats:S.cats,anuales:S.anuales,tareas:TK.list,regalos:GK.people.filter(p=>!p.yo||p.regalos.length),medidas:HK.items}));
+  const data=JSON.parse(JSON.stringify({app:'mi-dia-a-dia',version:1,exportado:Date.now(),months:S.months,cats:S.cats,anuales:S.anuales,conjuntos:D.cj,tareas:TK.list,regalos:GK.people.filter(p=>!p.yo||p.regalos.length),medidas:HK.items}));
   const withPhoto=[];for(const p of data.regalos)for(const g of p.regalos||[])if(g.foto)withPhoto.push(g);for(const it of data.medidas)if(it.foto)withPhoto.push(it);
   let fail=0;if(withPhoto.length)toast('Preparando '+withPhoto.length+' foto'+(withPhoto.length===1?'':'s')+'…');
   for(const o of withPhoto){try{const r=await fetch('/_blob/'+o.foto);if(!r.ok)throw 0;o.fotoData=await blobToDataURL(await r.blob());delete o.foto}catch(e){fail++;delete o.foto}}
@@ -1238,8 +1294,9 @@ function readImport(input){const f=input.files&&input.files[0];input.value='';if
 function applyImport(){
   const d=S.pendingImport;if(!d)return;S.pendingImport=null;
   S.months=d.months||{};if(Array.isArray(d.cats)&&d.cats.length)S.cats=fixCats(d.cats);S.anuales=Array.isArray(d.anuales)?d.anuales:[];
+  if(d.conjuntos&&typeof d.conjuntos==='object'){const c=d.conjuntos;D.cj={months:c.months||{},cats:Array.isArray(c.cats)&&c.cats.length?fixCats(c.cats):CATS_DEFAULT.map(x=>({...x})),anuales:Array.isArray(c.anuales)?c.anuales:[]}}
   TK.list=Array.isArray(d.tareas)?d.tareas:[];GK.people=Array.isArray(d.regalos)?d.regalos:[];ensureYo();HK.items=Array.isArray(d.medidas)?d.medidas:[];
-  if(S.mode==='db'){for(const ym in S.months)saveMonth(ym);saveCats();saveAnuales();for(const t of TK.list)saveTask(t);for(const p of GK.people)if(!p.yo||p.regalos.length)savePerson(p);for(const it of HK.items)saveHouse(it)}
+  if(S.mode==='db'){for(const ym in S.months)saveMonth(ym);saveCats();saveAnuales();if(d.conjuntos){S.ctx='cj';for(const ym in S.months)saveMonth(ym);saveCats();saveAnuales();S.ctx='main'}for(const t of TK.list)saveTask(t);for(const p of GK.people)if(!p.yo||p.regalos.length)savePerson(p);for(const it of HK.items)saveHouse(it)}
   else{saveLocal();saveTasksLocal();saveGiftsLocal();saveHouseLocal()}
   closeSheet();render();toast('Datos recuperados');
 }
@@ -1270,7 +1327,7 @@ document.addEventListener('click',e=>{
     case 'editI':openIngreso(id);break;
     case 'close':closeSheet();break;
     case 'home':go('hub');break;
-    case 'open':go(b.dataset.app);if(b.dataset.app==='gastos'){S.tab='inicio';render()}break;
+    case 'open':go(b.dataset.app);if(S.app==='gastos'){S.tab='inicio';render()}break;
     case 'tView':TK.view=b.dataset.v;TK.open=null;TK.confirm=null;renderTareas();break;
     case 'tAdd':tAdd();break;
     case 'tOpen':TK.open=TK.open===id?null:id;TK.confirm=null;renderTareas();break;
@@ -1278,6 +1335,9 @@ document.addEventListener('click',e=>{
     case 'tUndone':tUndone(id);break;
     case 'tDel':tDel(id);break;
     case 'gAddP':gAddP();break;
+    case 'gBulk':GK.bulk=!GK.bulk;renderRegalos();break;
+    case 'gBulkOk':gBulkOk();break;
+    case 'gBulkFill':GK.bulkText=BULK_PRELOAD;renderRegalos();break;
     case 'backup':S.pendingImport=null;openBackup();break;
     case 'exportData':exportData();break;
     case 'importOk':applyImport();break;
