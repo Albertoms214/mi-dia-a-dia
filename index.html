@@ -360,6 +360,358 @@ body.no-tabbar .toast{bottom:calc(24px + env(safe-area-inset-bottom,0px))}
 .loading{padding:60px 0;text-align:center;color:var(--muted)}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 </style>
+<style>
+/* ===== Apartados nuevos: billetes, documentos y despensa (mismo sistema visual) ===== */
+:root{--neg-ink:#2A0A05;--neg-soft:#F3B8AE;--neg-bg:#1F1412;--neg-line:#4A231E;--paper:#F6F6F2;--ink:#14181B;--ink-muted:#5F686F;--paper-line:#DEE0DC}
+html.locked{overflow:hidden}
+.vh{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden}
+.btn{position:relative}
+.btn.big{padding:15px 16px;font-size:1rem;border-radius:16px}
+.top>.btn.mini{flex:none;white-space:nowrap}
+.spin{width:18px;height:18px;flex:none;border-radius:50%;border:2.5px solid var(--s3);border-top-color:var(--mint);animation:spin .8s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.linkbtn{display:inline-flex;align-items:center;gap:6px;font-size:.84rem;font-weight:700;color:var(--mint);cursor:pointer;position:relative;padding:6px 0;margin-top:2px}
+.field.bad .inp{border-color:var(--neg)}
+.field .inp[type=date],.field .inp[type=time]{min-height:46px}
+.tab{position:relative}
+.tabbar .in.three{grid-template-columns:1fr 76px 1fr}
+#layer{position:fixed;inset:0;z-index:40}
+.appbtn .badge.red{background:var(--neg);color:var(--neg-ink)}
+.hubnote b.neg{color:var(--neg)}
+.tempty.b-empty{padding:30px 10px 6px}
+.b-empty b{display:block;color:var(--fg);font-size:1.05rem;margin-bottom:4px}
+.b-fold{display:flex;align-items:center;justify-content:space-between;width:100%;padding:6px 2px;font-size:.74rem;font-weight:800;letter-spacing:.1em;color:var(--dim);text-transform:uppercase}
+.b-fold svg{width:16px;height:16px}
+.b-busy{display:flex;flex-direction:column;align-items:center;gap:14px;padding:54px 10px;color:var(--muted);font-weight:600;text-align:center}
+.b-busy .spin{width:30px;height:30px;border-width:3px}
+
+/* ---- Billetes ---- */
+.b-next{background:var(--s1);border:1px solid var(--line);border-radius:22px;padding:16px 16px 14px;display:flex;flex-direction:column;gap:12px}
+.b-next .k{font-size:.8rem;font-weight:700;color:var(--muted)}
+.b-nrow{display:flex;align-items:flex-end;gap:14px;min-width:0}
+.b-next .big{font-size:2.7rem;font-weight:800;letter-spacing:-.045em;line-height:.9}
+.b-next .to{font-size:.86rem;color:var(--muted);font-weight:600;line-height:1.35;min-width:0}
+.b-next .to b{color:var(--fg);font-weight:700}
+.b-next .to svg{width:14px;height:14px;display:inline;vertical-align:-2px}
+.b-nfacts{display:flex;flex-wrap:wrap;gap:6px}
+.b-nfacts:empty{display:none}
+.b-nfacts span{font-size:.78rem;font-weight:700;background:var(--s2);border:1px solid var(--line);border-radius:8px;padding:4px 8px}
+.b-next .btn{padding:13px}
+.b-days{display:flex;flex-direction:column;gap:10px}
+.b-day{background:var(--s1);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.b-day.past{opacity:.75}
+.b-dhead{display:grid;grid-template-columns:50px minmax(0,1fr) auto;gap:14px;align-items:center;width:100%;padding:12px 12px 12px 10px;text-align:left}
+.b-date{display:flex;flex-direction:column;align-items:center;line-height:1;padding-right:12px;border-right:1px solid var(--line)}
+.b-date span{font-size:.62rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.b-date b{font-size:1.75rem;font-weight:800;margin:3px 0 2px;letter-spacing:-.03em}
+.b-sum{min-width:0;display:flex;flex-direction:column;gap:4px}
+.b-r{font-weight:700;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.b-r .arr svg{width:14px;height:14px;display:inline;vertical-align:-2px;color:var(--muted)}
+.b-meta{color:var(--muted);font-size:.8rem;font-weight:600;display:flex;flex-wrap:wrap;gap:2px 10px}
+.b-meta b{color:var(--fg);font-weight:800}
+.b-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px;color:var(--muted)}
+.b-side>svg{width:18px;height:18px;transition:transform .2s}
+.b-day.open .b-side>svg{transform:rotate(180deg)}
+.b-chip{font-size:.7rem;font-weight:800;padding:4px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.b-chip.hot{background:var(--fg);border-color:var(--fg);color:var(--bg)}
+.b-tickets{display:flex;flex-direction:column;gap:12px;padding:0 10px 12px}
+.b-ticket{--notch:var(--s1);background:var(--paper);color:var(--ink);border-radius:14px}
+.b-main{padding:14px 16px 4px}
+.b-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:.76rem;font-weight:700;color:var(--ink-muted)}
+.b-top b{color:var(--ink);font-weight:800;margin-right:4px}
+.b-route{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;margin-top:10px}
+.b-route .end{text-align:right}
+.b-time{font-size:2.15rem;font-weight:800;letter-spacing:-.045em;line-height:1}
+.b-st{margin-top:5px;font-size:.84rem;font-weight:700;line-height:1.25;max-width:13ch;overflow-wrap:anywhere}
+.b-route .end .b-st{margin-left:auto}
+.b-line{position:relative;height:34px;display:flex;align-items:center;justify-content:center}
+.b-line::before{content:"";position:absolute;left:0;right:4px;top:50%;height:2px;background:var(--ink);border-radius:2px}
+.b-line::after{content:"";position:absolute;right:0;top:calc(50% - 4px);width:8px;height:8px;border-radius:50%;background:var(--ink)}
+.b-line span{position:relative;background:var(--paper);padding:0 6px;font-size:.74rem;font-weight:700;color:var(--ink-muted);white-space:nowrap}
+.b-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-flow:row dense;gap:10px 12px;margin:14px 0 10px}
+.b-grid div{min-width:0}
+.b-grid .w2{grid-column:span 2}
+.b-grid dt{font-size:.68rem;font-weight:700;color:var(--ink-muted)}
+.b-grid dd{margin:2px 0 0;font-weight:800;font-size:1.25rem;line-height:1.1;letter-spacing:-.02em;overflow-wrap:anywhere}
+.b-grid dd small{font-size:.62em}
+.b-grid dd.txt{font-size:.92rem;font-weight:700;letter-spacing:0}
+.b-grid dd.loc{font-size:1.05rem;letter-spacing:.05em}
+.b-copy{display:inline-flex;align-items:center;gap:6px;text-align:left;font-weight:800}
+.b-copy svg{width:14px;height:14px;color:var(--ink-muted)}
+.b-note{font-size:.84rem;font-weight:600;background:color-mix(in srgb,var(--ink) 6%,transparent);border-radius:8px;padding:8px 10px;margin:0 0 10px;white-space:pre-wrap}
+.b-perf{position:relative;height:20px}
+.b-perf::before{content:"";position:absolute;left:16px;right:16px;top:50%;border-top:2px dashed var(--paper-line)}
+.b-perf::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 0 50%,var(--notch) 9.5px,transparent 10px),radial-gradient(circle at 100% 50%,var(--notch) 9.5px,transparent 10px)}
+.b-code{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;padding:6px 16px 14px;color:var(--ink-muted);font-size:.78rem;font-weight:700}
+.b-code img{width:min(220px,66%);height:auto;background:#fff;image-rendering:pixelated;border-radius:4px}
+.b-code.wide img{width:100%;max-width:340px}
+.b-code span{display:inline-flex;align-items:center;gap:6px}
+.b-code svg{width:14px;height:14px}
+.b-nocode{display:flex;align-items:center;gap:12px;width:calc(100% - 32px);margin:6px 16px 14px;padding:12px;border-radius:10px;border:1.5px dashed var(--paper-line);text-align:left;color:var(--ink)}
+.b-nocode img{width:46px;height:62px;object-fit:cover;object-position:top;border-radius:3px;border:1px solid var(--paper-line);flex:none}
+.b-nocode b{display:block;font-size:.9rem}
+.b-nocode small{display:block;color:var(--ink-muted);font-size:.78rem;margin-top:2px;font-weight:600}
+.b-acts{display:flex;border-top:1px solid var(--paper-line);padding:4px 6px}
+.b-acts button{flex:1;padding:11px 4px;border-radius:8px;font-size:.82rem;font-weight:800;color:var(--ink)}
+.b-acts button:active{background:color-mix(in srgb,var(--ink) 7%,transparent)}
+.b-acts .del{color:#B4362C}
+.b-confirm{display:flex;align-items:center;gap:8px;border-top:1px solid var(--paper-line);padding:8px 10px 8px 16px;font-size:.86rem;font-weight:700}
+.b-confirm span{flex:1;min-width:0}
+.b-confirm button{border-radius:9px;padding:9px 13px;font-weight:800;font-size:.84rem;background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink)}
+.b-confirm .yes{background:#B4362C;color:#fff}
+.b-confirm.dark{border:1px solid var(--neg);border-radius:14px;padding:10px 10px 10px 14px;background:var(--s1);color:var(--fg)}
+.b-confirm.dark button{background:var(--s2);color:var(--fg)}
+.b-confirm.dark .yes{background:var(--neg);color:var(--neg-ink)}
+.b-pick{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;margin-top:12px;padding:28px 18px;border:1.5px dashed var(--s3);border-radius:20px;background:var(--s2);cursor:pointer}
+.b-pick>svg{width:40px;height:40px;stroke-width:1.6;color:var(--fg)}
+.b-pick b{font-size:1.05rem}
+.b-pick>span:not(.btn){color:var(--muted);font-size:.86rem;font-weight:600;max-width:32ch;line-height:1.45}
+.b-pick .btn{margin-top:6px}
+.b-draft{background:var(--s2);border:1px solid var(--line);border-radius:18px;padding:14px;margin-top:12px}
+.b-draft .inp{background:var(--s1)}
+.b-dn{font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+.b-dcode{display:flex;gap:14px;align-items:center}
+.b-dcode b{display:block;font-size:.92rem}
+.b-dcode small{display:block;color:var(--muted);font-size:.8rem;font-weight:600;margin-top:2px}
+.b-qthumb{width:76px;height:76px;flex:none;border-radius:10px;background:#fff;display:grid;place-items:center;overflow:hidden}
+.b-qthumb img{max-width:100%;max-height:100%;image-rendering:pixelated}
+.b-qthumb.none{background:var(--s3);color:var(--dim)}
+.b-qthumb.none svg{width:28px;height:28px}
+.b-fgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 10px}
+.b-fgrid .s2{grid-column:1/-1}
+.b-fgrid .field{min-width:0}
+.b-seg{display:flex;gap:6px;flex-wrap:wrap}
+.b-seg button,.o-chip,.d-chip{flex:none;padding:8px 13px;border-radius:99px;background:var(--s2);border:1px solid var(--line);font-weight:700;font-size:.86rem;color:var(--muted)}
+.b-seg button{background:var(--s1)}
+.b-seg button[aria-pressed="true"],.o-chip[aria-pressed="true"],.d-chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.b-fs{position:absolute;inset:0;background:#fff;color:#111;display:flex;flex-direction:column;padding:env(safe-area-inset-top,0px) 16px env(safe-area-inset-bottom,0px)}
+.b-fsbar{display:flex;align-items:center;justify-content:space-between;padding-block:12px;font-weight:800;font-size:1rem}
+.b-fsx{width:44px;height:44px;border-radius:50%;border:1.5px solid rgba(17,17,17,.2);display:grid;place-items:center;color:#111}
+.b-fsx svg{width:20px;height:20px}
+.b-fsbody{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;min-height:0;text-align:center}
+.b-fsbody img{width:min(90vw,60vh);height:auto;max-height:62vh;object-fit:contain;image-rendering:pixelated}
+.b-fsbody img.page{width:auto;max-width:100%;image-rendering:auto}
+.b-fsroute{font-weight:800;font-size:1.3rem;line-height:1.2;letter-spacing:-.02em}
+.b-fsroute svg{width:18px;height:18px;display:inline;vertical-align:-3px}
+.b-fsinfo{font-size:.95rem;font-weight:600;display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px}
+.b-fstip{font-size:.8rem;color:#666;font-weight:600}
+.b-fsalt{font-weight:800;font-size:.86rem;text-decoration:underline;text-underline-offset:3px;padding:6px;color:#111}
+.b-fsnav{display:flex;gap:10px;padding-block:10px 16px}
+.b-fsnav button{flex:1;border:1.5px solid rgba(17,17,17,.18);border-radius:12px;padding:13px;font-weight:800;color:#111}
+.b-fsnav button:disabled{opacity:.3}
+.b-orig{position:absolute;inset:0;background:var(--bg);overflow:auto;padding-top:env(safe-area-inset-top,0px)}
+.b-origbar{position:sticky;top:0;left:0;display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--bg);z-index:2}
+.b-orig img{display:block;width:100%;max-width:900px;margin:0 auto;background:#fff}
+.b-orig.z img{width:220%;max-width:none}
+
+/* ---- Documentos ---- */
+.o-search{position:relative;display:block}
+.o-search svg{position:absolute;left:13px;top:50%;width:18px;height:18px;transform:translateY(-50%);color:var(--dim);pointer-events:none}
+.o-search .inp{padding:13px 14px 13px 40px;font-size:1rem;font-weight:500}
+.o-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px}
+.o-chips::-webkit-scrollbar{display:none}
+.o-chips.o-wrapc{flex-wrap:wrap;margin-inline:0;padding-inline:0;overflow:visible}
+.o-chip{display:inline-flex;gap:6px;align-items:baseline}
+.o-chip i{font-style:normal;font-size:.74rem;opacity:.6}
+.o-list{display:flex;flex-direction:column}
+.o-list .tday:first-child{padding-top:4px}
+.o-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 14px;padding:8px 0 6px}
+@media (min-width:560px){.o-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.o-doc{display:flex;flex-direction:column;gap:8px;text-align:left;min-width:0}
+.o-paper{position:relative;display:block;width:100%;aspect-ratio:3/4;background:var(--paper);border-radius:8px;overflow:hidden;box-shadow:0 8px 18px rgba(0,0,0,.35)}
+.o-paper img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+.o-pages{position:absolute;right:6px;bottom:6px;background:rgba(18,21,23,.82);color:#fff;font-size:.7rem;font-weight:800;border-radius:6px;padding:2px 6px}
+.o-name{font-weight:700;font-size:.92rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.o-meta{color:var(--muted);font-size:.76rem;font-weight:600;display:flex;flex-wrap:wrap;gap:2px 8px;margin-top:-4px}
+.o-meta b{color:var(--fg);font-weight:800}
+.o-choose{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.o-choose label{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:26px 10px;border:1.5px dashed var(--s3);border-radius:20px;background:var(--s2);cursor:pointer;min-height:150px}
+.o-choose svg{width:32px;height:32px;stroke-width:1.7}
+.o-choose b{font-size:1rem}
+.o-choose span{color:var(--muted);font-size:.8rem;font-weight:600}
+.o-strip{display:flex;gap:10px;overflow-x:auto;padding:10px 6px 6px 2px;margin-top:6px}
+.o-pg{position:relative;flex:none;width:88px}
+.o-pg .o-paper{border-radius:6px;box-shadow:none}
+.o-pg small{display:block;text-align:center;font-size:.72rem;color:var(--muted);font-weight:700;margin-top:4px}
+.o-rm{position:absolute;top:-6px;right:-6px;width:26px;height:26px;border-radius:50%;border:2px solid var(--s1);background:var(--fg);color:var(--bg);display:grid;place-items:center;z-index:2}
+.o-rm svg{width:12px;height:12px;stroke-width:3}
+.o-pgadd{position:relative;flex:none;width:88px;aspect-ratio:3/4;border:1.5px dashed var(--s3);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:.74rem;font-weight:700;text-align:center;cursor:pointer}
+.o-pgadd svg{width:20px;height:20px}
+.inp.o-big{font-size:1.1rem;font-weight:700}
+.o-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.o-two .field{min-width:0}
+.o-viewer{position:absolute;inset:0;background:var(--bg);overflow-y:auto;overscroll-behavior:contain;padding-top:env(safe-area-inset-top,0px)}
+.o-vhead{position:sticky;top:0;z-index:2;background:var(--bg);display:flex;align-items:center;gap:12px;padding:12px 16px 10px}
+.o-vt{flex:1;min-width:0}
+.o-vt b{display:block;font-size:1.05rem;font-weight:800;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.o-vt span{display:block;color:var(--muted);font-size:.8rem;font-weight:600;margin-top:1px}
+.o-vbody{max-width:720px;margin:0 auto;padding:4px 16px calc(40px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px}
+.o-vpage{background:#fff;border-radius:6px;overflow:auto}
+.o-vpage img{display:block;width:100%;cursor:zoom-in}
+.o-viewer.z .o-vpage img{width:230%;max-width:none;cursor:zoom-out}
+.o-info{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:14px;margin:0}
+.o-info dt{font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--dim);text-transform:uppercase}
+.o-info dd{margin:3px 0 0;font-weight:700;overflow-wrap:anywhere}
+.o-info .s2{grid-column:1/-1}
+.o-info dd.nt{font-weight:500;white-space:pre-wrap}
+.o-viewer{display:flex;flex-direction:column}
+.o-vbody{flex:1;width:100%}
+.o-acts{position:sticky;bottom:0;z-index:2;display:flex;gap:4px;justify-content:center;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:8px 8px calc(10px + env(safe-area-inset-bottom,0px))}
+.o-acts button{flex:1;max-width:120px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border-radius:12px;font-size:.74rem;font-weight:700;color:var(--fg)}
+.o-acts button svg{width:22px;height:22px}
+.o-acts button:active{background:var(--s2)}
+.o-acts button[disabled]{opacity:.4}
+.o-acts .del{color:var(--neg)}
+
+/* ---- Despensa ---- */
+.d-bd{position:absolute;top:0;left:calc(50% + 6px);min-width:19px;height:19px;padding:0 5px;border-radius:99px;background:var(--fg);color:var(--bg);font-size:.68rem;font-weight:800;display:grid;place-items:center;box-shadow:0 0 0 2px var(--bg)}
+.d-bd.red{background:var(--neg);color:var(--neg-ink)}
+.d-alert{border-radius:22px;padding:16px 16px 4px;background:var(--neg-bg);border:1px solid var(--neg-line)}
+.d-alert .ah{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-bottom:8px}
+.d-alert .k{font-size:.8rem;font-weight:700;color:var(--neg-soft);display:flex;align-items:center;gap:6px}
+.d-alert .k svg{width:15px;height:15px;color:var(--neg)}
+.d-alert .big{font-size:2.1rem;font-weight:800;letter-spacing:-.035em;line-height:1.05;margin-top:4px}
+.d-alert .big small{font-size:.46em;font-weight:700;color:var(--neg-soft);margin-left:6px;letter-spacing:0}
+.d-alert .arow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:11px 0;border-top:1px solid var(--neg-line);width:100%;text-align:left}
+.d-alert .arow .t{min-width:0;display:flex;flex-direction:column;gap:1px}
+.d-alert .arow b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d-alert .arow small{color:var(--neg-soft);font-size:.78rem;font-weight:600;opacity:.85}
+.d-alert .amore{margin:0;padding:10px 0 12px;border-top:1px solid var(--neg-line);font-size:.82rem;font-weight:600;color:var(--neg-soft)}
+.d-okline{display:flex;gap:10px;align-items:center;background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:13px 14px;color:var(--muted);font-weight:600;font-size:.9rem}
+.d-okline svg{color:var(--mint);width:18px;height:18px}
+.d-tag{display:inline-flex;align-items:center;font-size:.74rem;font-weight:800;padding:3px 8px;border-radius:8px;white-space:nowrap;background:var(--s2);color:var(--muted);border:1px solid var(--line)}
+.d-tag.soon{color:var(--neg);background:color-mix(in srgb,var(--neg) 11%,transparent);border-color:color-mix(in srgb,var(--neg) 38%,transparent)}
+.d-tag.gone{background:var(--neg);color:var(--neg-ink);border-color:var(--neg)}
+.d-tag.none{color:var(--dim);background:transparent}
+.d-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:2px;color:var(--muted);font-weight:600;font-size:.88rem}
+.d-toolbar b{color:var(--fg);font-weight:800}
+.d-pill{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;font-weight:700;color:var(--muted);padding:7px 11px;border-radius:99px;background:var(--s1);border:1px solid var(--line);white-space:nowrap}
+.d-pill svg{width:15px;height:15px}
+.d-plist{background:var(--s1);border:1px solid var(--line);border-radius:var(--r);padding:0 14px}
+.d-prow{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);width:100%;text-align:left}
+.d-plist .d-prow:first-child{border-top:0}
+.d-pth{width:44px;height:44px;border-radius:13px;background:var(--s2);display:grid;place-items:center;overflow:hidden;font-weight:800;color:var(--muted);flex:none;font-size:1.05rem;position:relative}
+.d-pth img{width:100%;height:100%;object-fit:cover;display:block;background:#fff}
+.d-pth.lg{width:68px;height:68px;border-radius:18px;font-size:1.5rem}
+.d-pth.blank{border:1.5px dashed var(--s3);background:transparent}
+.d-pth svg{width:24px;height:24px;color:var(--dim)}
+.d-prow .pt{min-width:0;display:flex;flex-direction:column;gap:2px}
+.d-prow .pt b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d-prow .pt small{color:var(--dim);font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d-prow .pr{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.d-prow .pn{font-weight:800;font-size:1.2rem;line-height:1}
+.d-prow .pn small{font-size:.66rem;color:var(--dim);font-weight:700;margin-left:3px}
+.d-prow.out .pt b{color:var(--muted)}
+.d-prow.out .d-pth{opacity:.45}
+.d-cdel{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--dim)}
+.d-cdel svg{width:18px;height:18px}
+.d-clear{font-size:.78rem;letter-spacing:0;text-transform:none;color:var(--muted);font-weight:700}
+.d-pick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+.d-ptile{display:flex;flex-direction:column;align-items:flex-start;gap:14px;padding:16px;border-radius:20px;background:var(--s2);border:1px solid var(--line);min-height:150px;text-align:left}
+.d-ptile .pi{width:46px;height:46px;border-radius:14px;display:grid;place-items:center}
+.d-ptile .pi svg{width:24px;height:24px}
+.d-ptile b{font-size:1.05rem;font-weight:800;letter-spacing:-.01em;line-height:1.2}
+.d-ptile small{display:block;color:var(--muted);font-weight:600;font-size:.8rem;margin-top:3px;line-height:1.35}
+.d-ptile.in .pi{background:var(--mint);color:var(--mint-ink)}
+.d-ptile.out .pi{background:var(--neg);color:var(--neg-ink)}
+.d-ptile:active{background:var(--s3)}
+.d-pickrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.d-reading{display:flex;flex-direction:column;align-items:center;gap:14px;padding:8px 0 4px;text-align:center}
+.d-shot{width:100%;max-height:240px;object-fit:cover;border-radius:18px;background:var(--s2);display:block}
+.d-status{display:flex;gap:10px;align-items:center;justify-content:center;font-weight:700}
+.d-status.bad{color:var(--neg-soft)}
+.d-status svg{width:18px;height:18px}
+.d-reading p{margin:0;color:var(--muted);font-size:.88rem;line-height:1.5;max-width:34ch}
+.d-rdacts{display:flex;flex-direction:column;gap:8px;width:100%}
+.d-hero{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;margin-top:6px}
+.d-hero .t{min-width:0;display:flex;flex-direction:column;gap:2px}
+.d-hero .t b{font-size:1.15rem;font-weight:800;letter-spacing:-.015em;line-height:1.25}
+.d-hero .t small{color:var(--muted);font-weight:600;font-size:.84rem}
+.d-hero .t .have{color:var(--dim);font-size:.8rem}
+.d-hero .fields{display:flex;flex-direction:column;gap:8px;min-width:0}
+.d-hero .inp.name{font-size:1.02rem;font-weight:700}
+.d-phbtn{position:relative;cursor:pointer;display:block}
+.d-phbtn .cam{position:absolute;right:-4px;bottom:-4px;width:24px;height:24px;border-radius:50%;background:var(--fg);color:var(--bg);display:grid;place-items:center;box-shadow:0 0 0 3px var(--s1)}
+.d-phbtn .cam svg{width:13px;height:13px;stroke-width:2.6}
+.d-look{display:flex;gap:9px;align-items:flex-start;font-size:.84rem;font-weight:600;color:var(--muted);background:var(--s2);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:10px;line-height:1.4}
+.d-look svg{width:17px;height:17px;flex:none;margin-top:1px}
+.d-look .spin{width:16px;height:16px;margin-top:1px;border-width:2px}
+.d-look.found svg{color:var(--mint)}
+.d-look.miss svg{color:var(--neg-soft)}
+.d-code{margin:10px 0 0;color:var(--dim);font-size:.78rem;font-weight:700;letter-spacing:.04em}
+.d-hint{margin:0;color:var(--dim);font-size:.8rem;font-weight:600;line-height:1.45}
+.d-saved{font-size:.74rem;color:var(--dim);font-weight:600;min-height:1em;margin:6px 0 0}
+.d-stepper{display:grid;grid-template-columns:54px 1fr 54px;align-items:center;background:var(--s2);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.d-stepper button{height:52px;display:grid;place-items:center;color:var(--fg)}
+.d-stepper button:active{background:var(--s3)}
+.d-stepper button[disabled]{color:var(--dim)}
+.d-stepper output{text-align:center;font-size:1.45rem;font-weight:800}
+.d-stepper.sm{grid-template-columns:38px 30px 38px;border-radius:12px}
+.d-stepper.sm button{height:38px}
+.d-stepper.sm button svg{width:17px;height:17px}
+.d-stepper.sm output{font-size:1rem}
+.d-dp{display:flex;flex-direction:column;gap:10px}
+.d-dpsum{display:flex;justify-content:space-between;align-items:baseline;gap:10px;background:var(--s2);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-height:50px}
+.d-dpsum b{font-size:1.1rem;font-weight:800;letter-spacing:-.01em}
+.d-dpsum b.soon{color:var(--neg)}
+.d-dpsum b.faint{color:var(--dim);font-weight:700}
+.d-dpsum small{color:var(--muted);font-weight:600;font-size:.8rem;text-align:right}
+.d-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px}
+.d-chips::-webkit-scrollbar{display:none}
+.d-months{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.d-months button{padding:11px 0;border-radius:12px;background:var(--s2);border:1px solid var(--line);font-weight:700;font-size:.92rem;color:var(--muted);text-transform:capitalize}
+.d-months button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.d-dprow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:stretch}
+.d-dprow .d-chip{border-radius:12px}
+.d-dayin{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--s2);border:1px solid var(--line);border-radius:12px;padding-left:12px}
+.d-dayin span{font-size:.84rem;font-weight:700;color:var(--muted)}
+.d-dayin span i{font-style:normal;color:var(--dim);font-weight:600}
+.d-dayin input{width:70px;background:transparent;border:0;border-left:1px solid var(--line);padding:11px 8px;font-weight:800;font-size:1.05rem;text-align:center;color:var(--fg)}
+.d-dayin input:focus{outline:none;background:var(--s3)}
+.d-pstat{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;background:var(--s2);border:1px solid var(--line);border-radius:18px;padding:14px 16px;margin-top:16px}
+.d-pstat .lb{font-size:.7rem;font-weight:800;letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+.d-pstat .big{display:block;font-size:2rem;font-weight:800;letter-spacing:-.03em;line-height:1.05;margin-top:2px}
+.d-pstat .big small{font-size:.45em;color:var(--muted);font-weight:700;margin-left:4px;letter-spacing:0}
+.d-pstat .r{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.d-pstat .r small{color:var(--muted);font-weight:600;font-size:.8rem}
+.d-pacts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.d-pacts .btn{padding:13px 10px}
+.d-glist{display:flex;flex-direction:column;margin-top:6px}
+.d-grow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.d-glist .d-grow:first-child{border-top:0}
+.d-gdate{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;text-align:left;min-width:0}
+.d-gdate .t{min-width:0;display:flex;flex-direction:column;gap:1px}
+.d-gdate .t b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d-gdate .t small{color:var(--muted);font-size:.78rem;font-weight:600}
+.d-grow.soon .d-gdate .t b,.d-grow.gone .d-gdate .t b{color:var(--neg)}
+.d-dtile{width:46px;height:48px;border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none;line-height:1.05;background:var(--s3);color:var(--fg)}
+.d-dtile b{font-size:1.05rem;font-weight:800;text-transform:uppercase}
+.d-dtile span{font-size:.6rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.d-dtile.soon{background:color-mix(in srgb,var(--neg) 16%,var(--s2));color:var(--neg)}
+.d-dtile.soon span{color:var(--neg-soft)}
+.d-dtile.gone{background:var(--neg);color:var(--neg-ink)}
+.d-dtile.gone span{color:var(--neg-ink)}
+.d-dtile.none{background:transparent;border:1.5px dashed var(--s3);color:var(--dim)}
+.d-gedit{padding:4px 0 14px;display:flex;flex-direction:column;gap:10px}
+.d-minrow{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center}
+.inp.d-codein{font-size:1.3rem;font-weight:800;letter-spacing:.06em;padding:14px}
+.d-scan{position:absolute;inset:0;background:#000;color:#fff;overflow:hidden}
+.d-scan video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.d-shade{position:absolute;inset:0;pointer-events:none}
+.d-frame{position:absolute;left:50%;top:44%;width:min(84vw,440px);aspect-ratio:16/9;transform:translate(-50%,-50%);border-radius:20px;border:2px solid rgba(255,255,255,.9);box-shadow:0 0 0 100vmax rgba(0,0,0,.5)}
+.d-frame i{position:absolute;left:8%;right:8%;top:50%;height:2px;border-radius:2px;background:var(--mint);box-shadow:0 0 12px var(--mint);animation:dsweep 1.8s ease-in-out infinite alternate}
+@keyframes dsweep{from{transform:translateY(-38px)}to{transform:translateY(38px)}}
+.d-scan.nocam .d-frame{box-shadow:0 0 0 100vmax rgba(0,0,0,.85);border-style:dashed;opacity:.6}
+.d-scan.nocam .d-frame i{display:none}
+.d-sbar{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px;font-weight:800}
+.d-sround{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.25);color:#fff}
+.d-sround.on{background:#fff;color:#000}
+.d-sround svg{width:20px;height:20px}
+.d-sfoot{position:absolute;left:0;right:0;bottom:0;padding:16px 16px calc(22px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center}
+.d-sfoot p{margin:0;font-weight:700;font-size:.95rem;max-width:30ch;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.d-sacts{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:440px}
+.d-sacts .btn{background:rgba(20,26,30,.8);border-color:rgba(255,255,255,.18);color:#fff;padding:13px 10px}
+</style>
 
 <div class="wrap">
   <header class="top" id="top"></header>
@@ -369,6 +721,7 @@ body.no-tabbar .toast{bottom:calc(24px + env(safe-area-inset-bottom,0px))}
 <div class="scrim" id="scrim" data-act="close" hidden></div>
 <section class="sheet" id="sheet" role="dialog" aria-modal="true" hidden></section>
 <div class="toast" id="toast" role="status" hidden></div>
+<div id="layer" hidden></div>
 
 <script src="jspdf.umd.min.js"></script>
 <script src="jspdf.plugin.autotable.min.js"></script>
@@ -833,11 +1186,16 @@ function dur(ms,long){ms=Math.max(0,ms);const m=Math.floor(ms/60000),h=Math.floo
   return long?d+(d===1?' día ':' días ')+(h%24)+' h':d+' d';}
 function isoDay(ms){const d=new Date(ms);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 
-function go(app){S.ctx=app==='conjuntos'?'cj':'main';S.app=app==='conjuntos'?'gastos':app;TK.open=null;TK.confirm=null;closeSheet();render();window.scrollTo(0,0)}
+function go(app){if(LY.kind)layerClose();if(app==='despensa')DS.tab='despensa';BI.confirm=null;S.ctx=app==='conjuntos'?'cj':'main';S.app=app==='conjuntos'?'gastos':app;TK.open=null;TK.confirm=null;closeSheet();render();window.scrollTo(0,0)}
 function render(){
-  document.body.classList.toggle('no-tabbar',S.app!=='gastos');
-  document.querySelector('.tabbar').hidden=S.app!=='gastos';
+  const tb=S.app==='gastos'||S.app==='despensa';
+  document.body.classList.toggle('no-tabbar',!tb);
+  document.querySelector('.tabbar').hidden=!tb;
+  $('#tabbar').className='in'+(S.app==='despensa'?' three':'');
   if(S.app==='gastos'){renderGastos();return}
+  if(S.app==='billetes'){renderBilletes();return}
+  if(S.app==='documentos'){renderDocs();return}
+  if(S.app==='despensa'){renderDespensa();return}
   if(S.app==='medidas'){renderMedidas();return}
   if(S.app==='tareas'||S.app==='regalos'){const a=document.activeElement;if(a&&a.closest&&a.closest('#view')&&a.matches('input,textarea')){TK.dirty=true;return}TK.dirty=false;if(S.app==='tareas')renderTareas();else renderRegalos();return}
   renderHub();
@@ -847,6 +1205,7 @@ function renderHub(){
   const d=new Date(),h=d.getHours(),greet=h<6?'Buenas noches':h<14?'Buenos días':h<21?'Buenas tardes':'Buenas noches';
   const np=pendTasks().length,m=peek(CUR),saldo=r2(sum(m.ing)-sum(m.gas));
   const oldest=pendTasks().slice(-1)[0];
+  const soon=dSoon(),nx=bNext();
   $('#view').innerHTML=`<div class="hub screen">
     <div class="date">${esc(cap(d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})))}</div>
     <h1>Mi día a día</h1><div class="greet">${greet}</div>
@@ -856,11 +1215,16 @@ function renderHub(){
       <button class="appbtn" data-act="open" data-app="tareas"><span class="tile">${ic('tasks')}</span>${np?`<span class="badge">${np}</span>`:''}<span class="nm">Tareas pendientes</span></button>
       <button class="appbtn" data-act="open" data-app="regalos"><span class="tile">${ic('gift')}</span><span class="nm">Cosas que regalar</span></button>
       <button class="appbtn" data-act="open" data-app="medidas"><span class="tile">${ic('ruler')}</span><span class="nm">Medidas casa</span></button>
+      <button class="appbtn" data-act="open" data-app="billetes"><span class="tile">${ic('train')}</span><span class="nm">Billetes de tren</span></button>
+      <button class="appbtn" data-act="open" data-app="documentos"><span class="tile">${ic('files')}</span><span class="nm">Documentos</span></button>
+      <button class="appbtn" data-act="open" data-app="despensa"><span class="tile">${ic('basket')}</span>${soon?`<span class="badge red">${soon}</span>`:''}<span class="nm">Despensa</span></button>
       <div class="appbtn soon" aria-hidden="true"><span class="tile">${ic('plus')}</span><span class="nm">Próximamente</span></div>
     </div>
     ${S.ready?`<div class="hubnote">
       <div><span>Te quedan en ${MESES[+CUR.slice(5)-1]}</span><b class="${saldo<0?'neg':''}">${eur(saldo)}</b></div>
       <div><span>Tareas por hacer</span><b>${np}</b></div>
+      ${nx?`<div><span>Próximo tren</span><b>${esc(bHubWhen(nx))}</b></div>`:''}
+      ${soon?`<div><span>Caducan pronto en la despensa</span><b class="neg">${soon}</b></div>`:''}
       ${giftSpent()>0?`<div><span>Gastado en regalos</span><b>${eur(giftSpent())}</b></div>`:''}
       ${oldest?`<div><span>La más antigua</span><b data-since="${oldest.creada}" data-short="1">hace ${dur(Date.now()-oldest.creada)}</b></div>`:''}
     </div>
@@ -1263,18 +1627,1566 @@ function delMedida(btn){if(!SH.armed){SH.armed=true;btn.classList.add('armed');b
   SH.newPhotos=[];closeSheet();render();toast('Borrado')}
 
 
+/* ================= BASE DE LOS APARTADOS NUEVOS (billetes, documentos, despensa) ================= */
+Object.assign(ICONS,{
+  "ticket":"<path d=\"M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z\"/><path d=\"M13 5v2\"/><path d=\"M13 17v2\"/><path d=\"M13 11v2\"/>",
+  "qr":"<rect width=\"5\" height=\"5\" x=\"3\" y=\"3\" rx=\"1\"/><rect width=\"5\" height=\"5\" x=\"16\" y=\"3\" rx=\"1\"/><rect width=\"5\" height=\"5\" x=\"3\" y=\"16\" rx=\"1\"/><path d=\"M21 16h-3a2 2 0 0 0-2 2v3\"/><path d=\"M21 21v.01\"/><path d=\"M12 7v3a2 2 0 0 1-2 2H7\"/><path d=\"M3 12h.01\"/><path d=\"M12 3h.01\"/><path d=\"M12 16v.01\"/><path d=\"M16 12h1\"/><path d=\"M21 12v.01\"/><path d=\"M12 21v-1\"/>",
+  "folder":"<path d=\"m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2\"/>",
+  "basket":"<path d=\"m15 11-1 9\"/><path d=\"m19 11-4-7\"/><path d=\"M2 11h20\"/><path d=\"m3.5 11 1.6 7.4a2 2 0 0 0 2 1.6h9.8a2 2 0 0 0 2-1.6l1.7-7.4\"/><path d=\"M4.5 15.5h15\"/><path d=\"m5 11 4-7\"/><path d=\"m9 11 1 9\"/>",
+  "scan":"<path d=\"M3 7V5a2 2 0 0 1 2-2h2\"/><path d=\"M17 3h2a2 2 0 0 1 2 2v2\"/><path d=\"M21 17v2a2 2 0 0 1-2 2h-2\"/><path d=\"M7 21H5a2 2 0 0 1-2-2v-2\"/><path d=\"M8 7v10\"/><path d=\"M12 7v10\"/><path d=\"M17 7v10\"/>",
+  "cart":"<circle cx=\"8\" cy=\"21\" r=\"1\"/><circle cx=\"19\" cy=\"21\" r=\"1\"/><path d=\"M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12\"/>",
+  "minus":"<path d=\"M5 12h14\"/>",
+  "alert":"<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\"/><path d=\"M12 9v4\"/><path d=\"M12 17h.01\"/>",
+  "keyboard":"<path d=\"M10 8h.01\"/><path d=\"M12 12h.01\"/><path d=\"M14 8h.01\"/><path d=\"M16 12h.01\"/><path d=\"M18 8h.01\"/><path d=\"M6 8h.01\"/><path d=\"M7 16h10\"/><path d=\"M8 12h.01\"/><rect width=\"20\" height=\"16\" x=\"2\" y=\"4\" rx=\"2\"/>",
+  "pkgout":"<path d=\"M16 16h6\"/><path d=\"M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14\"/><path d=\"m7.5 4.27 9 5.15\"/><path d=\"M3.29 7 12 12l8.71-5\"/><path d=\"M12 22V12\"/>",
+  "pkgin":"<path d=\"M16 16h6\"/><path d=\"M19 13v6\"/><path d=\"M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14\"/><path d=\"m7.5 4.27 9 5.15\"/><path d=\"M3.29 7 12 12l8.71-5\"/><path d=\"M12 22V12\"/>",
+  "download":"<path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/><path d=\"m7 10 5 5 5-5\"/><path d=\"M12 15V3\"/>",
+  "share":"<circle cx=\"18\" cy=\"5\" r=\"3\"/><circle cx=\"6\" cy=\"12\" r=\"3\"/><circle cx=\"18\" cy=\"19\" r=\"3\"/><line x1=\"8.59\" x2=\"15.42\" y1=\"13.51\" y2=\"17.49\"/><line x1=\"15.41\" x2=\"8.59\" y1=\"6.51\" y2=\"10.49\"/>",
+  "copy":"<rect width=\"14\" height=\"14\" x=\"8\" y=\"8\" rx=\"2\" ry=\"2\"/><path d=\"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2\"/>",
+  "sort":"<path d=\"m3 16 4 4 4-4\"/><path d=\"M7 20V4\"/><path d=\"M11 4h10\"/><path d=\"M11 8h7\"/><path d=\"M11 12h4\"/>",
+  "filetext":"<path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\"/><path d=\"M14 2v4a2 2 0 0 0 2 2h4\"/><path d=\"M10 9H8\"/><path d=\"M16 13H8\"/><path d=\"M16 17H8\"/>",
+  "files":"<path d=\"M20 7h-3a2 2 0 0 1-2-2V2\"/><path d=\"M9 18a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7l4 4v10a2 2 0 0 1-2 2Z\"/><path d=\"M3 7.6v12.8A1.6 1.6 0 0 0 4.6 22h9.8\"/>",
+  "expand":"<path d=\"m15 15 6 6\"/><path d=\"m15 9 6-6\"/><path d=\"M21 16v5h-5\"/><path d=\"M21 8V3h-5\"/><path d=\"M3 16v5h5\"/><path d=\"m3 21 6-6\"/><path d=\"M3 8V3h5\"/><path d=\"M9 9 3 3\"/>",
+  "arrow":"<path d=\"M5 12h14\"/><path d=\"m12 5 7 7-7 7\"/>",
+  "swap":"<path d=\"m16 3 4 4-4 4\"/><path d=\"M20 7H4\"/><path d=\"m8 21-4-4 4-4\"/><path d=\"M4 17h16\"/>"
+});
+const pad2=pad;
+const tickMs=(ms)=>new Promise(r=>setTimeout(r,ms||0));
+const plural=(n,a,b)=>n===1?a:b;
+const fmtMB=b=>(b/1048576).toFixed(1).replace('.',',')+' MB';
+
+/* Base de datos de archivos: billetes, documentos y sus páginas (aparte de la de los datos de siempre) */
+const FDB={db:null,mem:{billetes:new Map(),docs:new Map(),pages:new Map()}};
+function fdbInit(){return new Promise(res=>{
+  let done=false;const fin=()=>{if(!done){done=true;res()}};
+  let r;try{r=indexedDB.open('mi-dia-a-dia-archivos',1)}catch(e){return fin()}
+  r.onupgradeneeded=()=>{const d=r.result;for(const n of ['billetes','docs','pages'])if(!d.objectStoreNames.contains(n))d.createObjectStore(n,{keyPath:'id'})};
+  r.onsuccess=()=>{FDB.db=r.result;fin()};r.onerror=fin;r.onblocked=fin;setTimeout(fin,4000);
+})}
+function ftx(stores,mode,fn){return new Promise((res,rej)=>{
+  try{const t=FDB.db.transaction(stores,mode);const r=fn(t);t.oncomplete=()=>res(r&&'result' in r?r.result:undefined);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error)}catch(e){rej(e)}})}
+const fdb={
+  all:s=>FDB.db?ftx([s],'readonly',t=>t.objectStore(s).getAll()).then(a=>a||[]):Promise.resolve([...FDB.mem[s].values()]),
+  get:(s,id)=>FDB.db?ftx([s],'readonly',t=>t.objectStore(s).get(id)):Promise.resolve(FDB.mem[s].get(id)),
+  put:(s,v)=>FDB.db?ftx([s],'readwrite',t=>t.objectStore(s).put(v)):Promise.resolve(FDB.mem[s].set(v.id,v)),
+  del:(s,id)=>FDB.db?ftx([s],'readwrite',t=>t.objectStore(s).delete(id)):Promise.resolve(FDB.mem[s].delete(id)),
+  clear:s=>FDB.db?ftx([s],'readwrite',t=>t.objectStore(s).clear()):Promise.resolve(FDB.mem[s].clear()),
+  putDoc:(doc,body)=>FDB.db?ftx(['docs','pages'],'readwrite',t=>{t.objectStore('docs').put(doc);if(body)t.objectStore('pages').put({id:doc.id,...body})}):Promise.resolve((FDB.mem.docs.set(doc.id,doc),body&&FDB.mem.pages.set(doc.id,{id:doc.id,...body}))),
+  delDoc:id=>FDB.db?ftx(['docs','pages'],'readwrite',t=>{t.objectStore('docs').delete(id);t.objectStore('pages').delete(id)}):Promise.resolve((FDB.mem.docs.delete(id),FDB.mem.pages.delete(id))),
+};
+
+/* Capa a pantalla completa (código del billete, documento abierto, cámara) */
+const LY={kind:null,onclose:null};
+function layerShow(html,kind,onclose){const L=$('#layer');if(LY.kind!==kind&&LY.onclose){const f=LY.onclose;LY.onclose=null;try{f()}catch(e){}}
+  L.innerHTML=html;L.hidden=false;LY.kind=kind;if(onclose!==undefined)LY.onclose=onclose;document.documentElement.classList.add('locked')}
+function layerClose(){const f=LY.onclose;LY.onclose=null;LY.kind=null;const L=$('#layer');L.hidden=true;L.innerHTML='';
+  if($('#sheet').hidden)document.documentElement.classList.remove('locked');if(f)try{f()}catch(e){}}
+
+/* Librerías locales: solo se cargan cuando hacen falta */
+const LIBP={};
+function loadLib(src){return LIBP[src]||(LIBP[src]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.async=true;s.onload=res;s.onerror=()=>{delete LIBP[src];rej(new Error('lib'))};document.head.appendChild(s)}))}
+async function ensurePdf(){await loadLib('pdf.min.js');window.pdfjsLib.GlobalWorkerOptions.workerSrc='pdf.worker.min.js'}
+const loadZX=()=>loadLib('zxing.min.js').then(()=>window.ZXing);
+
+function makeCanvas(w,h){const c=document.createElement('canvas');c.width=Math.max(1,Math.round(w));c.height=Math.max(1,Math.round(h));return c}
+function fitCanvas(src,maxSide){const w=src.naturalWidth||src.videoWidth||src.width,h=src.naturalHeight||src.videoHeight||src.height;const k=Math.min(1,maxSide/Math.max(w,h));
+  const c=makeCanvas(w*k,h*k),x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.imageSmoothingQuality='high';x.drawImage(src,0,0,c.width,c.height);return c}
+function imgFromURL(src){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('img'));i.src=src})}
+async function imgFromFile(file){const u=URL.createObjectURL(file);try{return await imgFromURL(u)}finally{setTimeout(()=>URL.revokeObjectURL(u),0)}}
+const readDataURL=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});
+function dataURLtoBlob(u){const i=u.indexOf(',');const meta=u.slice(5,i),b64=/;base64/.test(meta),type=meta.split(';')[0]||'application/octet-stream';
+  const raw=b64?atob(u.slice(i+1)):decodeURIComponent(u.slice(i+1));const a=new Uint8Array(raw.length);for(let k=0;k<raw.length;k++)a[k]=raw.charCodeAt(k);return new Blob([a],{type})}
+const safeName=s=>(s||'documento').replace(/[\\/:*?"<>|]+/g,'').replace(/\s+/g,' ').trim().slice(0,80)||'documento';
+async function saveBlob(blob,filename){
+  if(dl){try{await dl.save({filename,data:blob});return true}catch(e){if(e&&e.code==='declined')return false}}
+  try{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);return true}catch(e){toast('No se ha podido descargar.');return false}}
+const canShareFiles=()=>{try{return !!(navigator.canShare&&navigator.canShare({files:[new File(['x'],'x.pdf',{type:'application/pdf'})]}))}catch(e){return false}};
+async function shareFiles(files,title){try{await navigator.share({files,title});return true}catch(e){if(e&&e.name!=='AbortError')toast('No se ha podido compartir.');return false}}
+
+/* Botón atrás del móvil: cierra lo que esté abierto antes de salir de la app */
+function appBack(){
+  if(LY.kind){const c=document.querySelector('#layer [data-back]');if(c)c.click();else layerClose();return true}
+  if(!$('#sheet').hidden){const c=document.querySelector('#sheet [data-act="close"],#sheet [data-act$=":close"]');if(c)c.click();else closeSheet();return true}
+  if(S.app!=='hub'){if(S.app==='gastos'&&S.tab!=='inicio'){S.tab='inicio';render();window.scrollTo(0,0);return true}go('hub');return true}
+  return false;
+}
+function backInit(){
+  try{if(!(history.state&&history.state.mddGuard)){history.replaceState({mddBase:1},'');history.pushState({mddGuard:1},'')}}catch(e){return}
+  window.addEventListener('popstate',e=>{if(e.state&&e.state.mddGuard)return;
+    if(appBack()){try{history.pushState({mddGuard:1},'')}catch(_){}}else{try{history.back()}catch(_){}}});
+}
+const SECT={};
+
+/* ---- Lectura de billetes (PDF o captura): misma lógica que la app de prueba, con el arreglo de horas ---- */
+const BLX=(()=>{
+'use strict';
+const tick=(ms=0)=>new Promise(r=>setTimeout(r,ms));
+const toMin=t=>{const [h,m]=t.split(':').map(Number);return h*60+m};
+/* ───────── estaciones (para leer el billete y autocompletar) ───────── */
+const STATIONS = [
+  ['Madrid Puerta de Atocha','MAD',['PUERTA DE ATOCHA','MADRID P ATOCHA','PTA DE ATOCHA','PTA ATOCHA','MADRID ATOCHA','ATOCHA']],
+  ['Madrid Chamartín','MAD',['CHAMARTIN']],
+  ['Madrid','MAD',['MADRID'],1],
+  ['Barcelona Sants','BCN',['BARCELONA SANTS','BCN SANTS','SANTS']],
+  ['Barcelona Passeig de Gràcia','BCN',['PASSEIG DE GRACIA']],
+  ['Barcelona','BCN',['BARCELONA'],1],
+  ['Figueres Vilafant','FIG',['FIGUERES VILAFANT','VILAFANT']],
+  ['Figueres','FIG',['FIGUERES','FIGUERAS']],
+  ['Girona','GRO',['GIRONA','GERONA']],
+  ['Camp de Tarragona','TGN',['CAMP DE TARRAGONA','CAMP TARRAGONA']],
+  ['Tarragona','TGN2',['TARRAGONA']],
+  ['Lleida Pirineus','LLE',['LLEIDA','LERIDA']],
+  ['Zaragoza Delicias','ZAZ',['ZARAGOZA']],
+  ['Calatayud','CAL',['CALATAYUD']],
+  ['Guadalajara-Yebes','GUA',['GUADALAJARA']],
+  ['Valencia Joaquín Sorolla','VLC',['JOAQUIN SOROLLA','VALENCIA']],
+  ['Cuenca Fernando Zóbel','CUE',['CUENCA']],
+  ['Albacete Los Llanos','ALB',['ALBACETE']],
+  ['Alicante','ALC',['ALICANTE','ALACANT']],
+  ['Elche','ELX',['ELCHE','ELX']],
+  ['Murcia del Carmen','MUR',['MURCIA']],
+  ['Castellón','CAS',['CASTELLON','CASTELLO']],
+  ['Sevilla Santa Justa','SVQ',['SANTA JUSTA','SEVILLA']],
+  ['Córdoba','ODB',['CORDOBA']],
+  ['Málaga María Zambrano','AGP',['MARIA ZAMBRANO','MALAGA']],
+  ['Antequera Santa Ana','ANT',['ANTEQUERA']],
+  ['Granada','GRX',['GRANADA']],
+  ['Ciudad Real','CRE',['CIUDAD REAL']],
+  ['Puertollano','PTL',['PUERTOLLANO']],
+  ['Toledo','TOL',['TOLEDO']],
+  ['Segovia Guiomar','SEG',['SEGOVIA']],
+  ['Valladolid Campo Grande','VLL',['VALLADOLID']],
+  ['Palencia','PAL',['PALENCIA']],
+  ['León','LEN',['LEON']],
+  ['Burgos Rosa Manzano','BUR',['BURGOS']],
+  ['Zamora','ZAM',['ZAMORA']],
+  ['Ourense','OUR',['OURENSE','ORENSE']],
+  ['Santiago de Compostela','SCQ',['SANTIAGO DE COMPOSTELA']],
+  ['A Coruña','LCG',['A CORUNA','LA CORUNA']],
+  ['Vigo Urzáiz','VGO',['VIGO']],
+  ['Salamanca','SLM',['SALAMANCA']],
+  ['Huesca','HSK',['HUESCA']],
+  ['Pamplona','PNA',['PAMPLONA']],
+  ['Logroño','RJL',['LOGRONO']],
+  ['Bilbao Abando','BIO',['BILBAO']],
+  ['Vitoria-Gasteiz','VIT',['VITORIA']],
+  ['Donostia-San Sebastián','EAS',['DONOSTIA','SAN SEBASTIAN']],
+  ['Oviedo','OVD',['OVIEDO']],
+  ['Gijón','GIJ',['GIJON']],
+  ['Santander','SDR',['SANTANDER']],
+  ['Badajoz','BJZ',['BADAJOZ']],
+  ['Mérida','MER',['MERIDA']],
+  ['Cáceres','CAC',['CACERES']],
+  ['Cádiz','CDZ',['CADIZ']],
+  ['Jerez de la Frontera','XRY',['JEREZ']],
+  ['Huelva','HEV',['HUELVA']],
+  ['Perpignan','PGF',['PERPIGNAN','PERPINYA','PERPINAN']],
+  ['Narbonne','NAR',['NARBONNE']],
+  ['Montpellier','MPL',['MONTPELLIER']],
+  ['Nîmes','NIM',['NIMES']],
+  ['Avignon','AVN',['AVIGNON','AVINON']],
+  ['Marseille','MRS',['MARSEILLE','MARSELLA']],
+  ['Lyon','LYS',['LYON']],
+  ['París','PAR',['PARIS']],
+].map(([name, city, pats, generic]) => ({ name, city, generic: !!generic,
+  res: pats.map(p => { const w = p.split(' '); const last = w.pop(); const tail = last.length > 6 ? last.slice(0, 6) + '[A-Z]*' : last;
+    return new RegExp('(?<![A-Z])' + [...w, tail].join('\\s*') + '(?![A-Z])', 'g'); }) }));
+
+const CLASES = [['ELIGE CONFORT','Elige Confort'],['INFINITA BISTRO','Infinita Bistró'],['TURISTA PLUS','Turista Plus'],['OUIGO PLUS','Ouigo Plus'],
+  ['PREMIUM','Prémium'],['ELIGE','Elige'],['BASICO','Básico'],['ESTANDAR','Estándar'],['CONFORT','Confort'],['TURISTA','Turista'],
+  ['PREFERENTE','Preferente'],['INFINITA','Infinita'],['SINGULAR','Singular'],['INICIAL','Inicial'],['ESENCIAL','Esencial']];
+
+/* Un tren no llega antes de salir: si las horas vienen al revés, se cambian */
+function fixOrder(o) {
+  if (o.salida && o.llegada && toMin(o.llegada) < toMin(o.salida)) { const t = o.salida; o.salida = o.llegada; o.llegada = t; }
+}
+/* Texto del billete → campos. Todo se hace en el propio dispositivo. */
+function upNorm(s) {
+  return s.toUpperCase().replace(/[^\x00-\x7F]/g, c => {
+    if (c === '€') return '€';
+    const b = c.normalize('NFD')[0];
+    return /[A-Z]/.test(b) ? b : ' ';
+  });
+}
+function lastPos(re, s) { let p = -1, m; const g = new RegExp(re.source, 'g'); while ((m = g.exec(s))) { p = m.index; if (!m[0]) g.lastIndex++; } return p; }
+const BAD_CTX = /(EMISI|EMITID|COMPRA|EXPEDI|VENTA|FACTUR|NACIM|CADUC|VALID|GENERAD|IMPRES|OPERACI|PAGO|RESERVAD|FECHA DE RESERVA|EMITTED|ISSUED)/;
+const GOOD_CTX = /(SALIDA|VIAJE|IDA(?![A-Z])|VUELTA|FECHA|DEPART|TRAYECTO|EMBARQUE|OUTBOUND)/;
+
+function parseTicketText(raw) {
+  const R = raw || '';
+  const N = upNorm(R);
+  const out = {};
+  const now = new Date();
+
+  // Fecha del viaje
+  const MON = {ENE:1,FEB:2,MAR:3,ABR:4,MAY:5,JUN:6,JUL:7,AGO:8,SEP:9,SET:9,OCT:10,NOV:11,DIC:12};
+  const dates = [];
+  const pushD = (y, mo, d, i) => {
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return;
+    if (y < 100) y += 2000;
+    if (y < 2000 || y > 2100) return;
+    dates.push({ s: `${y}-${pad2(mo)}-${pad2(d)}`, i });
+  };
+  let m;
+  const re1 = /(^|[^\d])(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4}|\d{2})(?!\d)/g;
+  while ((m = re1.exec(N))) pushD(+m[4], +m[3], +m[2], m.index + m[1].length);
+  const re2 = /(^|[^\d])(\d{4})-(\d{2})-(\d{2})(?!\d)/g;
+  if (!dates.length) while ((m = re2.exec(N))) pushD(+m[2], +m[3], +m[4], m.index + m[1].length);
+  const re3 = /(^|[^\dA-Z])(\d{1,2})\s*(?:DE\s+)?(ENERO|ENE|FEBRERO|FEB|MARZO|MAR|ABRIL|ABR|MAYO|MAY|JUNIO|JUN|JULIO|JUL|AGOSTO|AGO|SEPTIEMBRE|SETIEMBRE|SEPT|SEP|SET|OCTUBRE|OCT|NOVIEMBRE|NOV|DICIEMBRE|DIC)(?![A-Z])\.?(?:\s*(?:DE\s+|,\s*)?(\d{4}))?/g;
+  while ((m = re3.exec(N))) {
+    let y = m[4] ? +m[4] : now.getFullYear();
+    const mo = MON[m[3].slice(0, 3)], d = +m[2];
+    if (!m[4]) { const cand = new Date(y, mo - 1, d); if ((now - cand) / 86400000 > 60) y++; }
+    pushD(y, mo, d, m.index + m[1].length);
+  }
+  if (dates.length) {
+    const freq = {};
+    dates.forEach(d => freq[d.s] = (freq[d.s] || 0) + 1);
+    dates.forEach(d => {
+      const ctx = N.slice(Math.max(0, d.i - 45), d.i);
+      const b = lastPos(BAD_CTX, ctx), g = lastPos(GOOD_CTX, ctx);
+      d.score = (b > g ? -6 : 0) + (g > b ? 3 : 0) + freq[d.s];
+    });
+    dates.sort((a, b) => b.score - a.score || a.i - b.i);
+    out.fecha = dates[0].s;
+  }
+
+  // Horas
+  const lab = (word) => {
+    const r = new RegExp('(?<![A-Z])' + word + '(?![A-Z])[^0-9]{0,45}?(?:\\d{1,2}[\\/.\\-]\\d{1,2}[\\/.\\-]\\d{2,4}\\s*)?(?:[^0-9]{0,6})([01]?\\d|2[0-3]):([0-5]\\d)(?![\\d:])');
+    const x = r.exec(N); return x ? `${pad2(x[1])}:${x[2]}` : '';
+  };
+  out.salida = lab('(?:SALIDA|SALE|DEPARTURE|SORTIDA)');
+  out.llegada = lab('(?:LLEGADA|LLEGA|ARRIVAL|ARRIBADA)');
+  const times = [];
+  const reT = /(^|[^\d:])([01]?\d|2[0-3]):([0-5]\d)(?![\d:])/g;
+  while ((m = reT.exec(N))) {
+    const i = m.index + m[1].length;
+    const ctx = N.slice(Math.max(0, i - 32), i);
+    if (BAD_CTX.test(ctx) || /DURACI/.test(ctx)) continue;
+    times.push(`${pad2(m[2])}:${m[3]}`);
+  }
+  if (!out.salida && times.length) out.salida = times[0];
+  if (!out.llegada) { const nx = times.find(t => t !== out.salida && times.indexOf(t) > times.indexOf(out.salida)); if (nx) out.llegada = nx; }
+
+  // Estaciones
+  const T = N.replace(/[-–_\/.,]/g, ' ');
+  let hits = [];
+  STATIONS.forEach(st => st.res.forEach(re => { re.lastIndex = 0; let h; while ((h = re.exec(T))) hits.push({ st, i: h.index, len: h[0].length }); }));
+  hits.sort((a, b) => a.i - b.i || b.len - a.len);
+  const kept = [];
+  hits.forEach(h => { const prev = kept[kept.length - 1]; if (prev && h.i < prev.i + prev.len) return; kept.push(h); });
+  const specific = kept.filter(h => !h.st.generic);
+  const use = specific.length >= 2 ? specific : kept;
+  const labeled = (word) => {
+    const p = lastPos(new RegExp('(?<![A-Z])' + word + '(?![A-Z])'), T);
+    if (p < 0) return null;
+    return use.find(h => h.i > p && h.i - p < 50) || null;
+  };
+  const o = labeled('(?:ORIGEN|DESDE|FROM)'), dd = labeled('(?:DESTINO|HASTA|TO)');
+  const seq = [];
+  use.forEach(h => { if (!seq.length || seq[seq.length - 1].st.name !== h.st.name) seq.push(h); });
+  const uniq = []; seq.forEach(h => { if (!uniq.find(u => u.st.city === h.st.city)) uniq.push(h); });
+  out.origen = (o || uniq[0])?.st.name || '';
+  out.destino = (dd && dd.st.name !== out.origen ? dd : uniq.find(u => u.st.name !== out.origen && u.st.city !== (o || uniq[0])?.st.city))?.st.name || '';
+
+  // Compañía
+  out.operador = /(?<![A-Z])IRYO(?![A-Z])/.test(N) ? 'Iryo' : /(?<![A-Z])OUIGO(?![A-Z])/.test(N) ? 'Ouigo'
+    : /(RENFE|AVLO|ALVIA|AVANT|RODALIES|CERCANIAS)/.test(N) ? 'Renfe' : '';
+
+  // Tren
+  const trRe = /(?<![A-Z])(AVE|AVLO|ALVIA|AVANT|EUROMED|INTERCITY|IRYO|OUIGO|MD|TGV INOUI|TGV|REGIONAL EXPRES|REGIONAL|R\d{1,2})(?![A-Z])\s*(?:N\s*O?\s*|NUM\s*)?[:#]?\s*(\d{3,5})(?!\d)/;
+  m = trRe.exec(N);
+  if (m) out.tren = `${m[1] === 'IRYO' ? 'iryo' : m[1] === 'OUIGO' ? 'Ouigo' : m[1]} ${m[2]}`;
+  else {
+    m = /(?<![A-Z])(?:TREN|TRAIN|N TREN)(?![A-Z])\s*(?:N\s*O?\s*|NUM\s*)?[:#]?\s*(\d{3,5})(?!\d)/.exec(N);
+    if (m) { const ty = /(?<![A-Z])(AVE|AVLO|ALVIA|AVANT|EUROMED|INTERCITY|MD)(?![A-Z])/.exec(N); out.tren = `${ty ? ty[1] : (out.operador || 'Tren')} ${m[1]}`; }
+  }
+
+  // Coche y plaza
+  m = /(?<![A-Z])(?:COCHE|COCH|VAGON|COACH|CAR)(?![A-Z])\s*(?:N\s*O?\s*)?[:.]?\s*(\d{1,2})(?!\d)/.exec(N);
+  if (m) out.coche = String(+m[1]);
+  m = /(?<![A-Z])(?:PLAZA|PLAZ|ASIENTO|SEAT|PZA)(?![A-Z])\s*(?:N\s*O?\s*)?[:.]?\s*(\d{1,3}\s?[A-F]?)(?![\dA-Z])/.exec(N);
+  if (m) out.plaza = m[1].replace(/\s/g, '');
+
+  // Localizador
+  m = /(?<![A-Z])(LOCALIZADOR|LOCALIZ|CODIGO\s+DE\s+RESERVA|CODIGO\s+RESERVA|COD\s*RESERVA|PNR|BOOKING\s+REF(?:ERENCE)?|REFERENCIA)(?![A-Z])\s*[:.]?\s*([A-Z0-9]{5,10})(?![A-Z0-9])/.exec(N);
+  if (m && (/\d/.test(m[2]) || (/^LOCALIZ/.test(m[1]) && m[2].length <= 8))) out.localizador = m[2];
+
+  // Precio
+  const prices = [];
+  const reP = /(\d{1,4}[.,]\d{2})\s*(?:€|EUR(?![A-Z]))|(?:€|EUR(?![A-Z]))\s*(\d{1,4}[.,]\d{2})/g;
+  while ((m = reP.exec(N))) {
+    const v = parseFloat((m[1] || m[2]).replace(',', '.'));
+    const ctx = N.slice(Math.max(0, m.index - 35), m.index);
+    prices.push({ v, pr: /(TOTAL|IMPORTE|PRECIO)/.test(ctx) ? 1 : 0 });
+  }
+  if (prices.length) { prices.sort((a, b) => b.pr - a.pr || b.v - a.v); out.precio = prices[0].v.toFixed(2).replace('.', ','); }
+
+  // Tarifa / clase
+  let tarifaAt = lastPos(/(?<![A-Z])(TARIFA|FARE)(?![A-Z])/, N);
+  if (tarifaAt < 0) tarifaAt = lastPos(/(?<![A-Z])CLASE(?![A-Z])/, N);
+  let best = null;
+  CLASES.forEach(([k, label]) => {
+    const r = new RegExp('(?<![A-Z])' + k.replace(' ', '\\s+') + '(?![A-Z])', 'g'); let x;
+    while ((x = r.exec(N))) {
+      const near = tarifaAt >= 0 && x.index > tarifaAt && x.index - tarifaAt < 40;
+      const sc = near ? 10 - (x.index - tarifaAt) / 10 : k.length / 100;
+      if (!best || sc > best.sc) best = { sc, label };
+    }
+  });
+  if (best) out.clase = best.label;
+
+  // Viajero
+  m = /(?<![A-Z])(?:VIAJERO|PASAJERO|NOMBRE Y APELLIDOS|NOMBRE|TITULAR|PASSENGER)(?![A-Z])\s*[:.]?\s*([A-Z][A-Z' ]{2,40}?)(?=\s*(?:\n|$|DNI|NIF|NIE|PASAPORTE|DOC|COCHE|PLAZA|TARIFA|CLASE|LOCALIZ|TREN|SALIDA|LLEGADA|FECHA|TIPO|ADULTO|IDA|VUELTA|PRECIO|TOTAL|IMPORTE|CODIGO|BILLETE|ASIENTO))/.exec(N);
+  if (m && /[A-Z]{2,}\s+[A-Z]{2,}/.test(m[1])) {
+    let name = m[1].trim();
+    if (R.length === N.length) { const st = m.index + m[0].indexOf(m[1]); name = R.slice(st, st + m[1].trim().length); }
+    out.viajero = name.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+  }
+  fixOrder(out);
+  Object.keys(out).forEach(k => { if (!out[k]) delete out[k]; });
+  return out;
+}
+
+/* ───────── lectura de los códigos (QR, Aztec…) ───────── */
+function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
+function scaled(src, maxW) {
+  if (src.width <= maxW) return { c: src, f: 1 };
+  const k = maxW / src.width, c = makeCanvas(src.width * k, src.height * k);
+  const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, c.width, c.height);
+  return { c, f: 1 / k };
+}
+function cloneCanvas(src) { const c = makeCanvas(src.width, src.height); c.getContext('2d').drawImage(src, 0, 0); return c; }
+function bbox(pts, mFrac, square, W, H) {
+  let x0 = Math.min(...pts.map(p => p.x)), x1 = Math.max(...pts.map(p => p.x));
+  let y0 = Math.min(...pts.map(p => p.y)), y1 = Math.max(...pts.map(p => p.y));
+  const span = Math.max(x1 - x0, y1 - y0, 24), mg = span * mFrac;
+  x0 -= mg; x1 += mg; y0 -= mg; y1 += mg;
+  if (square) { const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, s = Math.max(x1 - x0, y1 - y0) / 2; x0 = cx - s; x1 = cx + s; y0 = cy - s; y1 = cy + s; }
+  return { x0: Math.max(0, x0), y0: Math.max(0, y0), x1: Math.min(W, x1), y1: Math.min(H, y1) };
+}
+function cropBox(src, b) {
+  const w = b.x1 - b.x0, h = b.y1 - b.y0, pad = Math.round(Math.max(w, h) * 0.06);
+  const c = makeCanvas(w + pad * 2, h + pad * 2), x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+  x.drawImage(src, b.x0, b.y0, w, h, pad, pad, w, h);
+  return c;
+}
+// Blanco y negro puro: el código se ve nítido aunque en el PDF venga borroso o con marca de agua
+function binarize(src) {
+  const c = cloneCanvas(src), x = c.getContext('2d'), d = x.getImageData(0, 0, c.width, c.height), a = d.data;
+  const hist = new Array(256).fill(0); const L = new Uint8Array(a.length / 4);
+  for (let i = 0, j = 0; i < a.length; i += 4, j++) { const l = (a[i] * 299 + a[i + 1] * 587 + a[i + 2] * 114) / 1000 | 0; L[j] = l; hist[l]++; }
+  // Otsu
+  const tot = L.length; let sum = 0; for (let t = 0; t < 256; t++) sum += t * hist[t];
+  let sB = 0, wB = 0, best = 0, thr = 128;
+  for (let t = 0; t < 256; t++) { wB += hist[t]; if (!wB) continue; const wF = tot - wB; if (!wF) break; sB += t * hist[t]; const mB = sB / wB, mF = (sum - sB) / wF, v = wB * wF * (mB - mF) * (mB - mF); if (v > best) { best = v; thr = t; } }
+  for (let i = 0, j = 0; i < a.length; i += 4, j++) { const v = L[j] > thr ? 255 : 0; a[i] = a[i + 1] = a[i + 2] = v; a[i + 3] = 255; }
+  x.putImageData(d, 0, 0);
+  return c;
+}
+function zxDecode(cnv) {
+  const Z = window.ZXing; if (!Z) return null;
+  const hints = new Map();
+  hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.QR_CODE, Z.BarcodeFormat.AZTEC, Z.BarcodeFormat.DATA_MATRIX, Z.BarcodeFormat.PDF_417]);
+  hints.set(Z.DecodeHintType.TRY_HARDER, true);
+  const reader = new Z.MultiFormatReader(); reader.setHints(hints);
+  let src; try { src = new Z.HTMLCanvasElementLuminanceSource(cnv); } catch { return null; }
+  for (const Bin of [Z.HybridBinarizer, Z.GlobalHistogramBinarizer]) {
+    try { return reader.decodeWithState(new Z.BinaryBitmap(new Bin(src))); } catch {}
+  }
+  return null;
+}
+const isLink = t => /^\s*(https?:|www\.)|:\/\//i.test(t || '');
+
+// Encuentra TODOS los códigos de la página (para descartar los de anuncios)
+async function findCodes(cnv) {
+  const found = [];
+  if ('BarcodeDetector' in window) {
+    try {
+      const sup = await window.BarcodeDetector.getSupportedFormats();
+      const want = ['qr_code', 'aztec', 'data_matrix', 'pdf417'].filter(f => sup.includes(f));
+      if (want.length) {
+        const res = await new window.BarcodeDetector({ formats: want }).detect(cnv);
+        res.forEach(r => found.push({ pts: r.cornerPoints.map(p => ({ x: p.x, y: p.y })), text: r.rawValue || '', format: r.format, kind: 'corners' }));
+      }
+    } catch {}
+  }
+  await loadZX();
+  if (found.length) return found;
+  const Z = window.ZXing;
+  const work = cloneCanvas(cnv), wx = work.getContext('2d');
+  for (let round = 0; round < 6; round++) {
+    let hit = null;
+    for (const w of [1200, 1800, 2400]) {
+      if (w > work.width * 1.01 && w !== 1200) continue;
+      const v = scaled(work, w);
+      const r = zxDecode(v.c);
+      await tick();
+      if (r) { hit = { r, f: v.f }; break; }
+    }
+    if (!hit) break;
+    const r = hit.r, fmt = r.getBarcodeFormat();
+    const pts = (r.getResultPoints() || []).filter(Boolean).map(p => ({ x: p.getX() * hit.f, y: p.getY() * hit.f }));
+    const isQR = fmt === Z.BarcodeFormat.QR_CODE;
+    const rec = { pts, text: r.getText(), format: Z.BarcodeFormat[fmt] || '', kind: isQR ? 'finders' : 'corners', sq: fmt !== Z.BarcodeFormat.PDF_417 };
+    found.push(rec);
+    if (pts.length < 2) break;
+    const b = bbox(pts, isQR ? 0.5 : 0.25, rec.sq, work.width, work.height);
+    wx.fillStyle = '#fff'; wx.fillRect(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
+  }
+  return found;
+}
+function codeCenter(c) { const xs = c.pts.map(p => p.x), ys = c.pts.map(p => p.y); return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2, a: (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys)) }; }
+// De todos los códigos: fuera los enlaces (publicidad); el más cercano al localizador o, si no, el más grande
+function pickCodes(codes, anchor) {
+  const ok = codes.filter(c => c.text && !isLink(c.text) && c.pts.length >= 2);
+  if (!ok.length) return [];
+  ok.forEach(c => { const m = codeCenter(c); c.cx = m.x; c.cy = m.y; c.area = m.a; });
+  if (anchor) ok.sort((a, b) => Math.hypot(a.cx - anchor.x, a.cy - anchor.y) - Math.hypot(b.cx - anchor.x, b.cy - anchor.y));
+  else ok.sort((a, b) => b.area - a.area);
+  return ok;
+}
+function codeImage(cnv, c) {
+  const margins = c.kind === 'finders' ? [0.22, 0.32, 0.46] : [0.08, 0.16, 0.28];
+  const sq = c.sq !== false && c.format !== 'pdf417' && c.format !== 'PDF_417';
+  let fallback = null;
+  for (const mg of margins) {
+    const crop = cropBox(cnv, bbox(c.pts, mg, sq, cnv.width, cnv.height));
+    const big = crop.width < 500 ? (() => { const k = Math.ceil(500 / crop.width), u = makeCanvas(crop.width * k, crop.height * k), ux = u.getContext('2d'); ux.imageSmoothingEnabled = true; ux.drawImage(crop, 0, 0, u.width, u.height); return u; })() : crop;
+    const bw = binarize(big);
+    const t1 = zxDecode(bw.width > 1400 ? scaled(bw, 1400).c : bw);
+    if (t1 && t1.getText() === c.text) return scaled(bw, 1000).c.toDataURL('image/png');
+    const t2 = zxDecode(crop.width > 1400 ? scaled(crop, 1400).c : crop);
+    if (t2 && !fallback) fallback = scaled(crop, 1000).c.toDataURL('image/png');
+  }
+  return fallback || scaled(cropBox(cnv, bbox(c.pts, margins[1], sq, cnv.width, cnv.height)), 1000).c.toDataURL('image/png');
+}
+
+/* ───────── billetes de Renfe: trayectos en columnas ───────── */
+function stationIn(raw) {
+  const T = upNorm(raw).replace(/[-–_\/.,]/g, ' ');
+  let best = null;
+  const better = (a, b) => a.st.generic !== b.st.generic ? !a.st.generic : a.i !== b.i ? a.i < b.i : a.len > b.len;
+  STATIONS.forEach(st => st.res.forEach(re => { re.lastIndex = 0; const h = re.exec(T); if (h) { const c = { st, i: h.index, len: h[0].length }; if (!best || better(c, best)) best = c; } }));
+  if (best) return best.st.name;
+  const s = raw.trim().replace(/\s+/g, ' ');
+  return s.toLowerCase().replace(/(^|[\s\-.])\S/g, c => c.toUpperCase());
+}
+function pageItems(tc, vp) {
+  return tc.items.filter(it => it.str && it.str.trim()).map(it => {
+    const [x, y] = vp.convertToViewportPoint(it.transform[4], it.transform[5]);
+    return { s: it.str, n: upNorm(it.str), x, y, w: (it.width || 0) * vp.scale, h: Math.max(4, Math.hypot(it.transform[2], it.transform[3]) * vp.scale) };
+  });
+}
+function linesIn(items, x0, x1, y0, y1) {
+  const sel = items.filter(i => i.x >= x0 && i.x < x1 && i.y >= y0 && i.y <= y1).sort((a, b) => a.y - b.y || a.x - b.x);
+  const lines = [];
+  sel.forEach(i => { const L = lines[lines.length - 1]; if (L && Math.abs(L.y - i.y) <= Math.max(3, i.h * 0.45)) L.items.push(i); else lines.push({ y: i.y, items: [i] }); });
+  return lines.map(L => L.items.sort((a, b) => a.x - b.x).map(i => i.s).join(' '));
+}
+function parseLeg(text, col) {
+  const N = upNorm(text);
+  const DT = '(\\d{1,2})[\\/.\\-](\\d{1,2})[\\/.\\-](\\d{2,4})', TM = '([01]?\\d|2[0-3]):([0-5]\\d)';
+  const grab = w => new RegExp('(?<![A-Z])' + w + '(?![A-Z])\\s*:?\\s*(.*?)\\s*' + DT + '[^\\d]{0,8}?' + TM).exec(N);
+  const o = grab('ORIGEN'), d = grab('DESTINO');
+  if (!o) return null;
+  const y = +o[4] < 100 ? 2000 + +o[4] : +o[4];
+  const leg = { fecha: `${y}-${pad2(o[3])}-${pad2(o[2])}`, salida: `${pad2(o[5])}:${o[6]}`, origen: stationIn(o[1]) };
+  if (d) { leg.destino = stationIn(d[1]); leg.llegada = `${pad2(d[5])}:${d[6]}`; }
+  let m = /(?<![A-Z])(?:COCHE|COCH|VAGON)(?![A-Z])\s*:?\s*(\d{1,2})(?!\d)/.exec(N); if (m) leg.coche = String(+m[1]);
+  m = /(?<![A-Z])(?:PLAZA|ASIENTO)(?![A-Z])\s*:?\s*(\d{1,3}\s?[A-F]?)(?![\dA-Z])/.exec(N); if (m) leg.plaza = m[1].replace(/\s/g, '');
+  m = /(?<![A-Z])(AVE|AVLO|ALVIA|AVANT|EUROMED|INTERCITY|MD|REGIONAL EXPRES|REGIONAL|IRYO|OUIGO|R\d{1,2})(?![A-Z])\s*(\d{3,5})(?!\d)(?:\s+([A-Z]+(?:\s+[A-Z]+)?))?/.exec(N);
+  if (m) {
+    leg.tren = `${m[1]} ${m[2]}`;
+    if (m[3]) { const w = m[3].trim(); const k = CLASES.find(([key]) => w.startsWith(key)); if (k) leg.clase = k[1]; }
+  }
+  if (!leg.clase) { const k = CLASES.find(([key]) => new RegExp('(?<![A-Z])' + key + '(?![A-Z])').test(N)); if (k) leg.clase = k[1]; }
+  if (/(?<![A-Z])SILENCIO(?![A-Z])/.test(N)) leg.notas = 'Coche silencio';
+  // Horas por posición: la hora que está a la altura de «Origen» es la salida; la de «Destino», la llegada
+  if (col && col.length) {
+    const TMr = /(?<!\d)([01]?\d|2[0-3]):([0-5]\d)(?![\d:])/;
+    const near = L => {
+      const c = col.filter(i => TMr.test(i.n) && i.x >= L.x - 1 && Math.abs(i.y - L.y) < L.h * 0.9)
+        .sort((a, b) => Math.abs(a.y - L.y) - Math.abs(b.y - L.y) || a.x - b.x)[0];
+      if (!c) return '';
+      const src = c === L ? c.n.slice(c.n.search(/ORIGEN|DESTINO/)) : c.n;
+      const m = TMr.exec(src); return m ? `${pad2(m[1])}:${m[2]}` : '';
+    };
+    const oL = col.find(i => /(?<![A-Z])ORIGEN(?![A-Z])/.test(i.n)), dL = col.find(i => /(?<![A-Z])DESTINO(?![A-Z])/.test(i.n));
+    const so = oL && near(oL), ll = dL && near(dL);
+    if (so) leg.salida = so;
+    if (ll) leg.llegada = ll;
+  }
+  fixOrder(leg);
+  return leg;
+}
+function parseLegs(items, pageW) {
+  const anchors = items.filter(i => /^\s*TRAYECTO(?![A-Z])/.test(i.n)).sort((a, b) => a.y - b.y || a.x - b.x);
+  if (!anchors.length) return [];
+  const stops = items.filter(i => /(^|\s)(TOTAL|S O V|N\s*BILLETE|IMPORTE)(?![A-Z])|S\.O\.V/.test(i.n));
+  const legs = [];
+  anchors.forEach(a => {
+    const row = anchors.filter(b => Math.abs(b.y - a.y) < a.h * 1.5).sort((p, q) => p.x - q.x);
+    const k = row.indexOf(a);
+    const x0 = a.x - a.h * 1.5, x1 = k < row.length - 1 ? row[k + 1].x - a.h * 0.8 : pageW;
+    const lows = [a.y + a.h * 16];
+    anchors.forEach(b => { if (b.y > a.y + a.h * 1.5) lows.push(b.y - a.h * 0.5); });
+    stops.forEach(s => { if (s.y > a.y + a.h * 1.2) lows.push(s.y - s.h * 0.4); });
+    const y0 = a.y - a.h * 0.6, y1 = Math.min(...lows);
+    const col = items.filter(i => i.x >= x0 && i.x < x1 && i.y >= y0 && i.y <= y1);
+    const leg = parseLeg(linesIn(items, x0, x1, y0, y1).join('\n'), col);
+    if (leg) legs.push(leg);
+  });
+  return legs;
+}
+
+/* ───────── archivo → borradores de billete ───────── */
+function toJpeg(c, maxW = 1400) { return scaled(c, maxW).c.toDataURL('image/jpeg', 0.86); }
+async function renderPdfPage(page) {
+  const base = page.getViewport({ scale: 1 });
+  const scale = Math.min(4, Math.max(1.5, 2000 / base.width));
+  const vp = page.getViewport({ scale });
+  const c = makeCanvas(vp.width, vp.height), x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+  await page.render({ canvasContext: x, viewport: vp }).promise;
+  return { c, vp };
+}
+async function fileToCanvas(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const k = Math.min(1, 2600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = makeCanvas(img.naturalWidth * k, img.naturalHeight * k), x = c.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+    return c;
+  } finally { URL.revokeObjectURL(url); }
+}
+const RECEIPT = /(COPIA PARA CLIENTE|CONCEPTOS FACTURADOS|CARGO POR VENTAS|JUSTIFICANTE DE (PAGO|COMPRA)|FACTURA SIMPLIFICADA)/;
+async function processFile(file, progress) {
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+  const drafts = [];
+  if (isPdf) {
+    progress('Abriendo el PDF…');
+    try { await ensurePdf(); } catch { throw new Error('No se ha podido abrir el lector de PDF. Abre la app una vez con conexión para que se guarde y vuelve a probar, o usa una captura del billete.'); }
+    let pdf;
+    try { pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise; }
+    catch { throw new Error('No he podido abrir este PDF. Prueba con una captura de pantalla del billete.'); }
+    const n = Math.min(pdf.numPages, 8);
+    let first = null;
+    for (let p = 1; p <= n; p++) {
+      progress(n > 1 ? `Leyendo la página ${p} de ${n}…` : 'Leyendo el billete…');
+      await tick(20);
+      const page = await pdf.getPage(p);
+      const tc = await page.getTextContent();
+      const text = tc.items.map(it => (it.str || '') + (it.hasEOL ? '\n' : ' ')).join('');
+      const N = upNorm(text);
+      const { c: cnv, vp } = await renderPdfPage(page);
+      const items = pageItems(tc, vp);
+      const legs = parseLegs(items, cnv.width);
+      // El justificante de compra no es un billete
+      if (!legs.length && RECEIPT.test(N)) continue;
+      progress(n > 1 ? `Buscando el código en la página ${p} de ${n}…` : 'Buscando el código QR…');
+      await tick(20);
+      const loc = items.find(i => /LOCALIZADOR/.test(i.n));
+      let codes = [];
+      try { codes = pickCodes(await findCodes(cnv), loc ? { x: loc.x, y: loc.y } : null); } catch {}
+      let codeImg = '', alt = [];
+      try {
+        if (codes[0]) codeImg = codeImage(cnv, codes[0]);
+        alt = codes.slice(1, 3).map(c => codeImage(cnv, c));
+      } catch {}
+      const pageImg = toJpeg(cnv);
+      const shared = { codeImg, codeText: codes[0]?.text || '', codeFormat: codes[0]?.format || '', altCodes: alt, pageImg };
+      const general = parseTicketText(text);
+      if (legs.length) {
+        legs.forEach((leg, k) => {
+          const d = { ...leg, ...shared };
+          if (general.localizador) d.localizador = general.localizador;
+          d.operador = general.operador || (/RENFE/.test(N) ? 'Renfe' : '');
+          if (k === 0 && general.precio) { d.precio = general.precio; if (legs.length > 1) d.notas = [d.notas, `Precio total de los ${legs.length} trayectos`].filter(Boolean).join(' · '); }
+          drafts.push(d);
+        });
+      } else {
+        const d = { ...general, ...shared };
+        if (!first) first = d;
+        const strong = ['fecha', 'salida', 'origen', 'destino'].filter(k => general[k]).length;
+        if (codeImg || strong >= 4) drafts.push(d);
+      }
+    }
+    if (!drafts.length && first) drafts.push(first);
+  } else if (/^image\//.test(file.type) || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name || '')) {
+    progress('Buscando el código QR…');
+    await tick(20);
+    let cnv;
+    try { cnv = await fileToCanvas(file); } catch { throw new Error('No he podido abrir esta imagen.'); }
+    let codes = [];
+    try { codes = pickCodes(await findCodes(cnv), null); } catch {}
+    let codeImg = '', alt = [];
+    try { if (codes[0]) codeImg = codeImage(cnv, codes[0]); alt = codes.slice(1, 3).map(c => codeImage(cnv, c)); } catch {}
+    drafts.push({ codeImg, codeText: codes[0]?.text || '', codeFormat: codes[0]?.format || '', altCodes: alt, pageImg: toJpeg(cnv) });
+  } else {
+    throw new Error('Elige un PDF o una imagen (captura de pantalla o foto del billete).');
+  }
+  if (!drafts.length) throw new Error('No he encontrado ningún billete en este archivo.');
+  return drafts;
+}
+
+
+return {processFile,parseTicketText,STATIONS,CLASES};
+})();
+
+/* ================= BILLETES DE TREN ================= */
+const BI={tickets:[],open:new Set(),pastOpen:false,confirm:null,fs:null,orig:null};
+const B_FIELDS=['fecha','salida','llegada','origen','destino','operador','tren','clase','coche','plaza','localizador','precio','viajero','notas'];
+const WD3=['dom','lun','mar','mié','jue','vie','sáb'],MO3=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const bDate=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const bDiff=s=>Math.round((bDate(s)-bDate(todayISO()))/864e5);
+const bMin=t=>{const [h,m]=String(t).split(':').map(Number);return h*60+m};
+function bDur(a,b){if(!a||!b)return '';let m=bMin(b)-bMin(a);if(m<0)m+=1440;if(!m)return '';const h=Math.floor(m/60),r=m%60;return h?`${h} h${r?' '+pad(r):''}`:`${r} min`}
+function bRel(s){const d=bDiff(s);if(d===0)return 'Hoy';if(d===1)return 'Mañana';if(d>1&&d<7)return `En ${d} días`;if(d===-1)return 'Ayer';return ''}
+const bLong=s=>bDate(s).toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
+const bId=()=>'b'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const bById=id=>BI.tickets.find(t=>t.id===id);
+
+async function bLoad(){
+  BI.tickets=(await fdb.all('billetes').catch(()=>[])).filter(t=>t&&typeof t.id==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(t.fecha||''));
+  const t0=todayISO();if(BI.tickets.some(t=>t.fecha===t0))BI.open.add(t0);
+}
+function bGrouped(){
+  const g={};for(const t of BI.tickets)(g[t.fecha]=g[t.fecha]||[]).push(t);
+  for(const k in g)g[k].sort((x,y)=>(x.salida||'99').localeCompare(y.salida||'99'));
+  const t0=todayISO(),keys=Object.keys(g);
+  return {g,up:keys.filter(k=>k>=t0).sort(),past:keys.filter(k=>k<t0).sort().reverse()};
+}
+/* El próximo tren que aún no ha salido (o salió hace menos de media hora) */
+function bNext(){
+  const t0=todayISO(),n=new Date(),cut=n.getHours()*60+n.getMinutes()-30;
+  return BI.tickets.filter(t=>t.fecha>t0||(t.fecha===t0&&(!t.salida||bMin(t.salida)>=cut)))
+    .sort((a,b)=>(a.fecha+(a.salida||'99')).localeCompare(b.fecha+(b.salida||'99')))[0]||null;
+}
+
+function bHubWhen(t){const r=bRel(t.fecha);return (r||cap(bLong(t.fecha)))+(t.salida?', '+t.salida:'')}
+function bTicketHTML(t){
+  const top=(t.operador&&t.operador!=='Otra'?`<b>${esc(t.operador)}</b>`:'')+(t.tren?esc(t.tren):'');
+  const cells=[];
+  if(t.coche)cells.push(`<div><dt>Coche</dt><dd>${esc(t.coche)}</dd></div>`);
+  if(t.plaza)cells.push(`<div><dt>Plaza</dt><dd>${esc(t.plaza)}</dd></div>`);
+  if(t.localizador)cells.push(`<div class="w2"><dt>Localizador</dt><dd class="loc"><button class="b-copy" data-act="b:copy" data-text="${esc(t.localizador)}" aria-label="Copiar localizador">${esc(t.localizador)}${ic('copy')}</button></dd></div>`);
+  if(t.precio)cells.push(`<div><dt>Precio</dt><dd>${esc(t.precio)}<small> €</small></dd></div>`);
+  if(t.viajero)cells.push(`<div class="w2"><dt>Viajero</dt><dd class="txt">${esc(t.viajero)}</dd></div>`);
+  const d=bDur(t.salida,t.llegada);
+  const code=t.codeImg
+    ?`<button class="b-code${/pdf/i.test(t.codeFormat||'')?' wide':''}" data-act="b:fs" data-id="${esc(t.id)}" aria-label="Ver el código a pantalla completa"><img src="${t.codeImg}" alt="Código del billete"><span>${ic('expand')} Toca para enseñarlo en grande</span></button>`
+    :t.pageImg
+      ?`<button class="b-nocode" data-act="b:orig" data-id="${esc(t.id)}"><img src="${t.pageImg}" alt=""><span><b>Ver el billete completo</b><small>No encontré el código en el archivo: enséñalo entero.</small></span></button>`
+      :`<div class="b-nocode"><span><b>Sin imagen del billete</b><small>Toca Editar para añadir el PDF o una captura.</small></span></div>`;
+  const acts=BI.confirm===t.id
+    ?`<div class="b-confirm"><span>¿Borrar este billete?</span><button data-act="b:delNo">No</button><button class="yes" data-act="b:delYes" data-id="${esc(t.id)}">Borrar</button></div>`
+    :`<div class="b-acts">${t.pageImg?`<button data-act="b:orig" data-id="${esc(t.id)}">Billete original</button>`:''}<button data-act="b:edit" data-id="${esc(t.id)}">Editar</button><button class="del" data-act="b:del" data-id="${esc(t.id)}">Borrar</button></div>`;
+  return `<article class="b-ticket" id="bt-${esc(t.id)}">
+    <div class="b-main">
+      <div class="b-top"><span>${top||'Billete de tren'}</span><span>${esc(t.clase||'')}</span></div>
+      <div class="b-route">
+        <div><div class="b-time">${esc(t.salida||'--:--')}</div><div class="b-st">${esc(t.origen||'Origen')}</div></div>
+        <div class="b-line">${d?`<span>${d}</span>`:''}</div>
+        <div class="end"><div class="b-time">${esc(t.llegada||'--:--')}</div><div class="b-st">${esc(t.destino||'Destino')}</div></div>
+      </div>
+      ${cells.length?`<dl class="b-grid">${cells.join('')}</dl>`:'<div style="height:10px"></div>'}
+      ${t.notas?`<div class="b-note">${esc(t.notas)}</div>`:''}
+    </div>
+    <div class="b-perf" aria-hidden="true"></div>
+    ${code}${acts}
+  </article>`;
+}
+function bDayHTML(key,items,past){
+  const d=bDate(key),f=items[0],l=items[items.length-1],open=BI.open.has(key);
+  const round=items.length>1&&l.destino&&l.destino===f.origen;
+  const route=round?`${esc(f.origen||'')} <span class="arr">${ic('swap')}</span> ${esc(f.destino||'')}`:`${esc(f.origen||'Origen')} <span class="arr">${ic('arrow')}</span> ${esc(l.destino||'Destino')}`;
+  const via=!round&&items.length>1?[...new Set(items.slice(0,-1).map(t=>t.destino).filter(Boolean))]:[];
+  const meta=[];
+  if(f.salida)meta.push(`<span><b>${esc(f.salida)}</b>${l.llegada&&!round?` – <b>${esc(l.llegada)}</b>`:''}</span>`);
+  if(via.length)meta.push(`<span>por ${esc(via.join(', '))}</span>`);
+  if(items.length>1)meta.push(`<span>${items.length} billetes</span>`);else if(f.tren)meta.push(`<span>${esc(f.tren)}</span>`);
+  const r=bRel(key);
+  return `<section class="b-day${open?' open':''}${past?' past':''}">
+    <button class="b-dhead" data-act="b:toggle" data-day="${key}" aria-expanded="${open}">
+      <span class="b-date"><span>${WD3[d.getDay()]}</span><b>${d.getDate()}</b><span>${MO3[d.getMonth()]}</span></span>
+      <span class="b-sum"><span class="b-r">${route}</span><span class="b-meta">${meta.join('')}</span></span>
+      <span class="b-side">${r?`<span class="b-chip${r==='Hoy'||r==='Mañana'?' hot':''}">${r}</span>`:''}${ic('down')}</span>
+    </button>
+    ${open?`<div class="b-tickets">${items.map(bTicketHTML).join('')}</div>`:''}
+  </section>`;
+}
+function renderBilletes(){
+  $('#top').innerHTML=`<button class="round back" data-act="home" aria-label="Volver a Mi día a día">${ic('back2')}</button><div class="period"><span class="ttitle">Billetes de tren</span></div>${BI.tickets.length?`<button class="btn white mini" data-act="b:add">${ic('plus')} Añadir</button>`:''}`;
+  if(!S.ready){$('#view').innerHTML='<div class="loading">Cargando…</div>';return}
+  let h='';
+  if(!BI.tickets.length){
+    h=`<div class="tempty b-empty">${ic('ticket')}<b>Aún no tienes billetes guardados</b>Añade el PDF que te manda Renfe, Iryo u Ouigo,<br>o una captura con el código QR.</div>
+      <button class="btn white full" data-act="b:add">${ic('plus')} Añadir billete</button>
+      <p class="note">Si ya los tenías en la app de prueba, guarda allí una copia y cárgala en Copia de seguridad, en el inicio.</p>`;
+    $('#view').innerHTML=`<div class="wrap screen" style="gap:14px">${h}</div>`;return;
+  }
+  const {g,up,past}=bGrouped(),nx=bNext();
+  if(nx){const r=bRel(nx.fecha);
+    h+=`<section class="b-next"><div class="k">${r?`Próximo tren · ${r.toLowerCase()}`:'Próximo tren · '+esc(bLong(nx.fecha))}</div>
+      <div class="b-nrow"><span class="big">${esc(nx.salida||'--:--')}</span><span class="to">${esc(nx.origen||'')}<br><b>${ic('arrow')} ${esc(nx.destino||'')}</b></span></div>
+      <div class="b-nfacts">${[nx.tren&&esc(nx.tren),nx.coche&&'Coche '+esc(nx.coche),nx.plaza&&'Plaza '+esc(nx.plaza)].filter(Boolean).map(x=>`<span>${x}</span>`).join('')}</div>
+      ${nx.codeImg||nx.pageImg?`<button class="btn white full" data-act="${nx.codeImg?'b:fs':'b:orig'}" data-id="${esc(nx.id)}">${ic('qr')} Enseñar el billete</button>`:''}</section>`}
+  const nUp=up.reduce((a,k)=>a+g[k].length,0),nPast=past.reduce((a,k)=>a+g[k].length,0);
+  h+=`<section class="sec"><div class="sec-h"><h2>Próximos</h2><span class="aside">${nUp} ${plural(nUp,'billete','billetes')}</span></div>`;
+  h+=up.length?`<div class="b-days">${up.map(k=>bDayHTML(k,g[k],false)).join('')}</div>`:`<div class="panel"><p class="empty">No tienes billetes para los próximos días.</p></div>`;
+  h+='</section>';
+  if(past.length){
+    h+=`<button class="b-fold" data-act="b:past" aria-expanded="${BI.pastOpen}"><span>Anteriores · ${nPast}</span>${ic(BI.pastOpen?'up':'down')}</button>`;
+    if(BI.pastOpen)h+=`<div class="b-days">${past.map(k=>bDayHTML(k,g[k],true)).join('')}</div>`;
+  }
+  $('#view').innerHTML=`<div class="wrap screen" style="gap:14px">${h}</div>`;
+}
+
+/* ---------- añadir y editar (hoja inferior) ---------- */
+const bFileIn=(attrs)=>`<input type="file" accept="application/pdf,image/*" class="vh" tabindex="-1" ${attrs}>`;
+function bDraftHTML(d,i,n){
+  const v=k=>esc(d[k]||'');
+  const box=d.codeImg
+    ?`<span class="b-qthumb"><img src="${d.codeImg}" alt=""></span><span><b>Código encontrado</b><small>Saldrá en grande al tocar el billete.</small><label class="linkbtn">Cambiar archivo${bFileIn(`data-bdraft="${i}"`)}</label></span>`
+    :d.pageImg?`<span class="b-qthumb none">${ic('qr')}</span><span><b>No he encontrado el código</b><small>Se enseñará el billete completo.</small><label class="linkbtn">Probar con otro archivo${bFileIn(`data-bdraft="${i}"`)}</label></span>`
+    :`<span class="b-qthumb none">${ic('qr')}</span><span><b>Sin imagen del billete</b><small>Añade el PDF o una captura para tener el código.</small><label class="linkbtn">Elegir archivo${bFileIn(`data-bdraft="${i}"`)}</label></span>`;
+  const f=(k,label,type,cls,extra)=>`<label class="field ${cls||''}" id="bw-${i}-${k}"><span>${label}</span><input class="inp" id="bf-${i}-${k}" type="${type||'text'}" value="${v(k)}" ${extra||''}></label>`;
+  const ops=['Renfe','Iryo','Ouigo','Otra'];
+  return `<div class="b-draft">${n>1?`<div class="b-dn">Billete ${i+1} de ${n}</div>`:''}
+    <div class="b-dcode">${box}</div>
+    <div class="b-fgrid">
+      ${f('fecha','Fecha del viaje','date','s2')}
+      <div class="field s2"><span>Compañía</span><div class="b-seg">${ops.map(o=>`<button type="button" data-act="b:op" data-i="${i}" data-v="${o}" aria-pressed="${d.operador===o}">${o}</button>`).join('')}</div><input type="hidden" id="bf-${i}-operador" value="${v('operador')}"></div>
+      ${f('salida','Salida','time')}${f('llegada','Llegada','time')}
+      ${f('origen','Origen','text','s2','list="b-dl-est" autocomplete="off" placeholder="Figueres Vilafant"')}
+      ${f('destino','Destino','text','s2','list="b-dl-est" autocomplete="off" placeholder="Madrid Puerta de Atocha"')}
+      ${f('tren','Tren','text','','autocomplete="off" placeholder="AVE 03082"')}${f('clase','Tarifa','text','','list="b-dl-clase" autocomplete="off"')}
+      ${f('coche','Coche','text','','inputmode="numeric" autocomplete="off"')}${f('plaza','Plaza','text','','autocomplete="off"')}
+      ${f('localizador','Localizador','text','','autocapitalize="characters" autocomplete="off" spellcheck="false"')}${f('precio','Precio (€)','text','','inputmode="decimal" autocomplete="off"')}
+      ${f('viajero','Viajero','text','s2','autocomplete="off"')}
+      <label class="field s2"><span>Notas</span><textarea class="inp" id="bf-${i}-notas" rows="2" placeholder="Opcional">${v('notas')}</textarea></label>
+    </div></div>`;
+}
+function bDrawSheet(){
+  if(!SH||SH.kind!=='b-add')return;
+  const n=SH.drafts.length,edit=SH.mode==='edit';
+  const title=edit?'Editar billete':SH.step==='review'&&n>1?`${n} billetes`:'Nuevo billete';
+  let h=`<div class="grab"></div><div class="sh"><h2>${title}</h2><div class="acts">${SH.step==='review'?`<button type="button" class="btn white" data-act="b:save">Guardar</button>`:''}<button type="button" class="round" data-act="b:close" aria-label="Cerrar">${ic('x')}</button></div></div>`;
+  if(SH.step==='pick'){
+    h+=`<label class="b-pick">${ic('ticket')}<b>Elige el PDF o la captura</b><span>El que te manda Renfe, Iryo u Ouigo por correo, o una captura de su app. El código QR se busca solo.</span><span class="btn white">Elegir archivo</span>${bFileIn('data-bpick="1"')}</label>
+      ${SH.err?`<p class="err">${esc(SH.err)}</p>`:''}
+      <button type="button" class="btn ghost full" data-act="b:manual" style="margin-top:10px">${ic('pencil')} Rellenar a mano</button>
+      <p class="note" style="text-align:left;margin-top:12px">Si el PDF trae ida y vuelta, se crean los dos billetes a la vez. El archivo se lee en el móvil y no se sube a ningún sitio.</p>`;
+  }else if(SH.step==='busy'){
+    h+=`<div class="b-busy"><span class="spin"></span><span id="bBusy">${esc(SH.msg||'Leyendo…')}</span></div>`;
+  }else{
+    h+=`<p class="note" style="text-align:left;margin:4px 0 0">${n>1?`He encontrado ${n} billetes en el archivo. Revisa los datos y guarda.`:edit?'Cambia lo que necesites.':'Revisa que los datos estén bien. Lo que falte puedes ponerlo a mano.'}</p>`;
+    h+=SH.drafts.map((d,i)=>bDraftHTML(d,i,n)).join('');
+    h+=`<p class="err" id="shErr">${SH.err?esc(SH.err):''}</p><button type="button" class="btn white full" data-act="b:save" style="margin-top:6px;padding:15px">${edit?'Guardar cambios':n>1?`Guardar ${n} billetes`:'Guardar billete'}</button>`;
+  }
+  const sh=$('#sheet'),top=sh.scrollTop;sh.innerHTML=h;if(SH.step==='review')sh.scrollTop=top;
+}
+function bOpenAdd(){SH={kind:'b-add',mode:'add',step:'pick',drafts:[],err:''};bDrawSheet();openSheet()}
+function bReadDrafts(){
+  return SH.drafts.map((d,i)=>{const o={...d};
+    for(const k of B_FIELDS){const el=document.getElementById(`bf-${i}-${k}`);if(el)o[k]=el.value.trim()}
+    if(o.localizador)o.localizador=o.localizador.toUpperCase();
+    if(o.precio){const p=parseAmt(o.precio);o.precio=isNaN(p)?o.precio:p.toFixed(2).replace('.',',')}
+    return o});
+}
+async function bHandlePick(file){
+  if(!file||!SH||SH.kind!=='b-add')return;
+  const tok=SH;SH.step='busy';SH.msg='Abriendo…';SH.err='';bDrawSheet();
+  try{const drafts=await BLX.processFile(file,m=>{if(SH===tok){SH.msg=m;const e=$('#bBusy');if(e)e.textContent=m}});
+    if(SH!==tok)return;SH.drafts=drafts;SH.step='review';
+  }catch(e){if(SH!==tok)return;SH.step='pick';SH.err=e&&e.message||'No he podido leer el archivo.'}
+  bDrawSheet();
+}
+async function bHandleDraftFile(i,file){
+  if(!file||!SH||SH.kind!=='b-add')return;
+  const tok=SH;SH.drafts=bReadDrafts();SH.step='busy';SH.msg='Leyendo…';bDrawSheet();
+  try{const res=await BLX.processFile(file,m=>{const e=$('#bBusy');if(e)e.textContent=m});
+    if(SH!==tok)return;const r=res[0]||{},d=SH.drafts[i];
+    d.codeImg=r.codeImg||'';d.codeText=r.codeText||'';d.codeFormat=r.codeFormat||'';d.pageImg=r.pageImg||'';d.altCodes=r.altCodes||[];
+    for(const k of B_FIELDS)if(!d[k]&&r[k])d[k]=r[k];
+    SH.err=r.codeImg?'':'No he encontrado el código en ese archivo; se guardará la imagen completa.';
+  }catch(e){if(SH!==tok)return;SH.err=e&&e.message||'No he podido leer el archivo.'}
+  SH.step='review';bDrawSheet();
+}
+async function bSave(){
+  const ds=bReadDrafts();let bad=-1;
+  ds.forEach((d,i)=>{const w=document.getElementById(`bw-${i}-fecha`);const miss=!/^\d{4}-\d{2}-\d{2}$/.test(d.fecha||'');if(w)w.classList.toggle('bad',miss);if(miss&&bad<0)bad=i});
+  if(bad>=0){const e=$('#shErr');if(e)e.textContent='Pon la fecha del viaje para poder ordenarlo.';const f=document.getElementById(`bf-${bad}-fecha`);if(f)f.focus();return}
+  const edit=SH.mode==='edit',editId=SH.editId;let fail=false;
+  for(const d of ds){
+    const t={...d,id:edit?editId:bId(),updated:Date.now()};if(!t.created)t.created=Date.now();
+    try{await fdb.put('billetes',t)}catch(e){fail=true}
+    const at=BI.tickets.findIndex(x=>x.id===t.id);if(at>=0)BI.tickets[at]=t;else BI.tickets.push(t);
+    BI.open.add(t.fecha);if(t.fecha<todayISO())BI.pastOpen=true;
+  }
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+  closeSheet();render();
+  toast(fail?'No se ha podido guardar en el móvil.':edit?'Cambios guardados':ds.length>1?`${ds.length} billetes guardados`:'Billete guardado');
+  const el=document.getElementById('bt-'+(edit?editId:''));if(el)el.scrollIntoView({block:'center',behavior:'smooth'});
+}
+
+/* ---------- código en grande y billete original (pantalla completa) ---------- */
+let bWake=null;
+async function bAwake(on){try{if(on&&!bWake&&navigator.wakeLock)bWake=await navigator.wakeLock.request('screen');if(!on&&bWake){await bWake.release();bWake=null}}catch(e){bWake=null}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&LY.kind==='b-fs'){bWake=null;bAwake(true)}});
+function bFsOpen(id){const t=bById(id);if(!t)return;
+  const ids=bGrouped().g[t.fecha].filter(x=>x.codeImg||x.pageImg).map(x=>x.id);
+  BI.fs={ids,i:Math.max(0,ids.indexOf(id)),alt:0};bFsDraw();bAwake(true)}
+function bFsDraw(){
+  const F=BI.fs,t=F&&bById(F.ids[F.i]);if(!t){layerClose();return}
+  const n=F.ids.length,src=t.codeImg?(F.alt&&t.altCodes&&t.altCodes[F.alt-1]?t.altCodes[F.alt-1]:t.codeImg):t.pageImg;
+  const info=[t.coche&&`Coche <b>${esc(t.coche)}</b>`,t.plaza&&`Plaza <b>${esc(t.plaza)}</b>`,t.tren&&esc(t.tren)].filter(Boolean).map(s=>`<span>${s}</span>`).join('');
+  layerShow(`<div class="b-fs" role="dialog" aria-modal="true" aria-label="Código del billete">
+    <div class="b-fsbar"><span>${n>1?`${F.i+1} de ${n}`:''}</span><button class="b-fsx" data-act="b:fsClose" data-back aria-label="Cerrar">${ic('x')}</button></div>
+    <div class="b-fsbody"><img class="${t.codeImg?'':'page'}" src="${src}" alt="Código del billete">
+      <div class="b-fsroute">${esc(t.salida||'')} ${esc(t.origen||'')} <span>${ic('arrow')}</span> ${esc(t.destino||'')}</div>
+      <div class="b-fsinfo">${info}</div>
+      <div class="b-fstip">Sube el brillo de la pantalla si el lector no lo coge.</div>
+      ${t.codeImg&&t.altCodes&&t.altCodes.length?`<button class="b-fsalt" data-act="b:fsAlt">${F.alt?'Volver al código principal':'El billete tiene otro código: verlo'}</button>`:''}
+    </div>
+    ${n>1?`<div class="b-fsnav"><button data-act="b:fsPrev" ${F.i===0?'disabled':''}>Anterior</button><button data-act="b:fsNext" ${F.i===n-1?'disabled':''}>Siguiente</button></div>`:'<div style="height:18px"></div>'}
+  </div>`,'b-fs',()=>{BI.fs=null;bAwake(false)});
+}
+function bOrigOpen(id,zoom){const t=bById(id);if(!t||!t.pageImg)return;BI.orig={id,zoom:!!zoom};
+  layerShow(`<div class="b-orig${zoom?' z':''}" role="dialog" aria-modal="true" aria-label="Billete original">
+    <div class="b-origbar"><button class="round" data-act="b:origClose" data-back aria-label="Cerrar">${ic('back2')}</button><button class="btn mini" data-act="b:origZoom">${zoom?'Ajustar a la pantalla':'Ampliar'}</button></div>
+    <img src="${t.pageImg}" alt="Billete original"></div>`,'b-orig',()=>{BI.orig=null})}
+
+/* ---------- copia ---------- */
+function bClean(raw){
+  if(!raw||typeof raw!=='object'||raw.sample||!/^\d{4}-\d{2}-\d{2}$/.test(raw.fecha||''))return null;
+  const t={};for(const k of B_FIELDS)if(raw[k]!=null&&raw[k]!=='')t[k]=String(raw[k]);
+  for(const k of ['codeImg','pageImg'])if(typeof raw[k]==='string'&&raw[k].startsWith('data:image/'))t[k]=raw[k];
+  t.altCodes=Array.isArray(raw.altCodes)?raw.altCodes.filter(x=>typeof x==='string'&&x.startsWith('data:image/')).slice(0,3):[];
+  t.codeText=typeof raw.codeText==='string'?raw.codeText:'';t.codeFormat=typeof raw.codeFormat==='string'?raw.codeFormat:'';
+  t.id=typeof raw.id==='string'&&raw.id&&!raw.sample?raw.id:bId();t.created=+raw.created||Date.now();t.updated=+raw.updated||Date.now();
+  return t;
+}
+async function bImport(arr,replace){
+  const list=(Array.isArray(arr)?arr:[]).map(bClean).filter(Boolean);
+  if(replace){try{await fdb.clear('billetes')}catch(e){}BI.tickets=[]}
+  for(const t of list){try{await fdb.put('billetes',t)}catch(e){}const at=BI.tickets.findIndex(x=>x.id===t.id);if(at>=0)BI.tickets[at]=t;else BI.tickets.push(t)}
+  return list.length;
+}
+
+/* ---------- eventos ---------- */
+SECT.b={click(a,b){const id=b.dataset.id;
+  switch(a){
+    case 'add':bOpenAdd();break;
+    case 'close':closeSheet();break;
+    case 'manual':SH.drafts=[{fecha:todayISO()}];SH.step='review';SH.err='';bDrawSheet();break;
+    case 'op':{const inp=document.getElementById(`bf-${b.dataset.i}-operador`),was=b.getAttribute('aria-pressed')==='true';
+      b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));if(!was)b.setAttribute('aria-pressed','true');if(inp)inp.value=was?'':b.dataset.v;break}
+    case 'save':bSave();break;
+    case 'toggle':{const k=b.dataset.day;if(BI.open.has(k))BI.open.delete(k);else BI.open.add(k);BI.confirm=null;renderBilletes();break}
+    case 'past':BI.pastOpen=!BI.pastOpen;renderBilletes();break;
+    case 'edit':{const t=bById(id);if(!t)break;BI.confirm=null;SH={kind:'b-add',mode:'edit',step:'review',editId:id,drafts:[{...t}],err:''};bDrawSheet();openSheet();break}
+    case 'del':BI.confirm=id;renderBilletes();break;
+    case 'delNo':BI.confirm=null;renderBilletes();break;
+    case 'delYes':{fdb.del('billetes',id).catch(()=>{});BI.tickets=BI.tickets.filter(t=>t.id!==id);BI.confirm=null;renderBilletes();toast('Billete borrado');break}
+    case 'copy':{const t=b.dataset.text;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('Localizador copiado'),()=>toast(t));break}
+    case 'fs':bFsOpen(id);break;
+    case 'fsClose':layerClose();break;
+    case 'fsPrev':if(BI.fs&&BI.fs.i>0){BI.fs.i--;BI.fs.alt=0;bFsDraw()}break;
+    case 'fsNext':if(BI.fs&&BI.fs.i<BI.fs.ids.length-1){BI.fs.i++;BI.fs.alt=0;bFsDraw()}break;
+    case 'fsAlt':{const t=bById(BI.fs.ids[BI.fs.i]);BI.fs.alt=BI.fs.alt?0:1;if(!t.altCodes||BI.fs.alt>t.altCodes.length)BI.fs.alt=0;bFsDraw();break}
+    case 'orig':bOrigOpen(id,false);break;
+    case 'origClose':layerClose();break;
+    case 'origZoom':if(BI.orig)bOrigOpen(BI.orig.id,!BI.orig.zoom);break;
+  }}};
+document.addEventListener('change',e=>{const t=e.target;if(!t.dataset)return;
+  if(t.dataset.bpick){const f=t.files&&t.files[0];t.value='';bHandlePick(f)}
+  else if(t.dataset.bdraft!=null){const f=t.files&&t.files[0];t.value='';bHandleDraftFile(+t.dataset.bdraft,f)}});
+function bInitLists(){
+  const mk=(id,opts)=>{if(document.getElementById(id))return;const d=document.createElement('datalist');d.id=id;d.innerHTML=opts.map(o=>`<option value="${esc(o)}">`).join('');document.body.appendChild(d)};
+  mk('b-dl-est',BLX.STATIONS.filter(s=>!s.generic).map(s=>s.name));
+  mk('b-dl-clase',['Básico','Elige','Elige Confort','Prémium','Estándar','Confort','Turista','Turista Plus','Preferente','Inicial','Singular','Infinita','Infinita Bistró']);
+}
+
+/* ================= DOCUMENTOS ================= */
+const DO={docs:[],q:'',cat:'Todos',view:null};
+const O_CATS=['Facturas','Recibos','Garantías','Seguros','Contratos','Coche','Casa','Salud','Trabajo','Otros'];
+const oId=()=>'d'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const oById=id=>DO.docs.find(d=>d.id===id);
+const oDate=s=>{if(!s)return '';const [y,m,d]=s.split('-').map(Number);return `${d} ${MES3[m-1]} ${y}`};
+const oMoney=s=>{if(s===''||s==null)return '';const v=parseAmt(s);return isNaN(v)?'':v.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})};
+
+async function oLoad(){DO.docs=(await fdb.all('docs').catch(()=>[])).filter(d=>d&&typeof d.id==='string')}
+function oFiltered(){
+  const q=norm(DO.q||'');
+  return DO.docs.filter(d=>(DO.cat==='Todos'||d.categoria===DO.cat)&&(!q||norm(`${d.nombre} ${d.notas||''} ${d.categoria}`).includes(q)))
+    .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||(b.created||0)-(a.created||0));
+}
+function oCard(d){
+  return `<button class="o-doc" data-act="o:open" data-id="${esc(d.id)}">
+    <span class="o-paper">${d.thumb?`<img src="${d.thumb}" alt="" loading="lazy">`:''}${d.npages>1?`<span class="o-pages">${d.npages} pág.</span>`:''}</span>
+    <span class="o-name">${esc(d.nombre)}</span>
+    <span class="o-meta"><span>${esc(d.categoria)} · ${oDate(d.fecha)}</span>${d.importe?`<b>${esc(oMoney(d.importe))} €</b>`:''}</span>
+  </button>`;
+}
+function oListHTML(){
+  const items=oFiltered();
+  if(!items.length)return `<div class="panel"><p class="empty">${DO.q||DO.cat!=='Todos'?'No hay documentos que coincidan.':'Aún no hay documentos.'}</p></div>`;
+  const groups=[];for(const d of items){const k=(d.fecha||'').slice(0,7);let g=groups[groups.length-1];if(!g||g.k!==k)groups.push(g={k,items:[]});g.items.push(d)}
+  return groups.map(g=>`<div class="tday"><span>${g.k?esc(MESES[+g.k.slice(5)-1]+' '+g.k.slice(0,4)):'Sin fecha'}</span><span>${g.items.length}</span></div><div class="o-grid">${g.items.map(oCard).join('')}</div>`).join('');
+}
+function oChipsHTML(){
+  const c={};for(const d of DO.docs)c[d.categoria]=(c[d.categoria]||0)+1;
+  const cats=['Todos',...O_CATS.filter(x=>c[x])];if(!cats.includes(DO.cat))DO.cat='Todos';
+  return cats.map(x=>`<button type="button" class="o-chip" data-act="o:cat" data-v="${esc(x)}" aria-pressed="${DO.cat===x}">${esc(x)}<i>${x==='Todos'?DO.docs.length:c[x]}</i></button>`).join('');
+}
+function renderDocs(){
+  $('#top').innerHTML=`<button class="round back" data-act="home" aria-label="Volver a Mi día a día">${ic('back2')}</button><div class="period"><span class="ttitle">Documentos</span></div>${DO.docs.length?`<button class="btn white mini" data-act="o:add">${ic('plus')} Añadir</button>`:''}`;
+  if(!S.ready){$('#view').innerHTML='<div class="loading">Cargando…</div>';return}
+  let h='';
+  if(!DO.docs.length){
+    h=`<div class="tempty b-empty">${ic('files')}<b>Guarda aquí tus papeles</b>Facturas, garantías, recibos, seguros…<br>Haz una foto o elige un PDF y ponle nombre.</div>
+      <button class="btn white full" data-act="o:add">${ic('plus')} Añadir documento</button>`;
+  }else{
+    h=`<label class="o-search">${ic('search')}<input class="inp" id="oQ" type="search" placeholder="Buscar por nombre o nota" value="${esc(DO.q)}" autocomplete="off" aria-label="Buscar documentos"></label>
+      <div class="o-chips" id="oChips">${oChipsHTML()}</div><div id="oList" class="o-list">${oListHTML()}</div>`;
+  }
+  $('#view').innerHTML=`<div class="wrap screen" style="gap:14px">${h}</div>`;
+}
+
+/* ---------- páginas: fotos y PDF, todo en el móvil ---------- */
+async function oImageFile(file){const img=await imgFromFile(file);return fitCanvas(img,2200).toDataURL('image/jpeg',.86)}
+async function oPdfFile(file,progress){
+  try{await ensurePdf()}catch(e){throw new Error('No se ha podido abrir el lector de PDF. Abre la app una vez con conexión para que se guarde y vuelve a probar.')}
+  let pdf;try{pdf=await window.pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise}catch(e){throw new Error('No he podido abrir este PDF.')}
+  const n=Math.min(pdf.numPages,20),pages=[];
+  for(let p=1;p<=n;p++){progress(`Preparando la página ${p} de ${n}…`);await tickMs(10);
+    const page=await pdf.getPage(p),base=page.getViewport({scale:1}),vp=page.getViewport({scale:Math.min(3,1700/base.width)});
+    const c=makeCanvas(vp.width,vp.height),x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);
+    await page.render({canvasContext:x,viewport:vp}).promise;pages.push(c.toDataURL('image/jpeg',.86))}
+  return {pages,pdf:file.size<15e6?await readDataURL(file):''};
+}
+async function oFilesToPages(files,progress){
+  const pages=[];let pdf='',pdfName='',name='',k=0;
+  for(const f of files){k++;
+    const isPdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name||'');
+    if(isPdf){const r=await oPdfFile(f,progress);pages.push(...r.pages);if(!pdf&&r.pdf){pdf=r.pdf;pdfName=f.name||'documento.pdf'}}
+    else if(/^image\//.test(f.type)||/\.(jpe?g|png|webp|gif|bmp|heic)$/i.test(f.name||'')){
+      progress(files.length>1?`Preparando la imagen ${k} de ${files.length}…`:'Preparando la imagen…');await tickMs(10);
+      try{pages.push(await oImageFile(f))}catch(e){throw new Error(`No he podido abrir «${f.name||'la imagen'}».`)}}
+    else throw new Error('Elige fotos o un PDF.');
+    if(!name&&f.name&&!/^(IMG|PXL|DSC|Screenshot|Captura|image|photo|WhatsApp|\d)/i.test(f.name))name=cap(f.name.replace(/\.[a-z0-9]+$/i,'').replace(/[_-]+/g,' ').trim());
+  }
+  return {pages,pdf,pdfName,name};
+}
+async function oThumb(src){const img=await imgFromURL(src);return fitCanvas(img,480).toDataURL('image/jpeg',.72)}
+
+/* ---------- añadir y editar (hoja inferior) ---------- */
+const oIn=(attrs)=>`<input type="file" class="vh" tabindex="-1" ${attrs}>`;
+function oDrawSheet(){
+  if(!SH||SH.kind!=='o-add')return;
+  const edit=SH.mode==='edit';
+  let h=`<div class="grab"></div><div class="sh"><h2>${edit?'Editar documento':'Nuevo documento'}</h2><div class="acts">${SH.step==='form'?`<button type="button" class="btn white" data-act="o:save">Guardar</button>`:''}<button type="button" class="round" data-act="o:close" aria-label="Cerrar">${ic('x')}</button></div></div>`;
+  if(SH.step==='pick'){
+    h+=`<div class="o-choose">
+      <label>${ic('camera')}<b>Hacer foto</b><span>Con la cámara</span>${oIn('accept="image/*" capture="environment" data-ofiles="new"')}</label>
+      <label>${ic('files')}<b>Elegir archivo</b><span>Fotos o un PDF</span>${oIn('multiple accept="image/*,application/pdf" data-ofiles="new"')}</label></div>
+      ${SH.err?`<p class="err">${esc(SH.err)}</p>`:''}
+      <p class="note" style="text-align:left;margin-top:12px">Si tiene varias hojas, elige todas las fotos a la vez o añádelas después. Se guarda en el móvil y no se sube a ningún sitio.</p>`;
+  }else if(SH.step==='busy'){
+    h+=`<div class="b-busy"><span class="spin"></span><span id="oBusy">${esc(SH.msg||'Preparando…')}</span></div>`;
+  }else{
+    const d=SH.draft;
+    h+=`<div class="o-strip">${d.pages.map((p,i)=>`<div class="o-pg"><span class="o-paper"><img src="${p}" alt="Página ${i+1}"></span>${d.pages.length>1?`<button type="button" class="o-rm" data-act="o:rmPage" data-i="${i}" aria-label="Quitar la página ${i+1}">${ic('x')}</button>`:''}<small>${i+1}</small></div>`).join('')}
+      <label class="o-pgadd">${ic('plus')}Añadir página${oIn('multiple accept="image/*,application/pdf" data-ofiles="more"')}</label>
+      <label class="o-pgadd">${ic('camera')}Foto${oIn('accept="image/*" capture="environment" data-ofiles="more"')}</label></div>
+      <label class="field" id="ow-nombre"><span>Nombre</span><input class="inp o-big" id="oNombre" maxlength="90" value="${esc(d.nombre||'')}" placeholder="Factura del agua, septiembre" autocomplete="off"></label>
+      <div class="field"><span>Tipo</span><div class="o-chips o-wrapc">${O_CATS.map(c=>`<button type="button" class="o-chip" data-act="o:pickCat" data-v="${esc(c)}" aria-pressed="${d.categoria===c}">${esc(c)}</button>`).join('')}</div></div>
+      <div class="o-two"><label class="field"><span>Fecha</span><input class="inp" id="oFecha" type="date" value="${esc(d.fecha||todayISO())}"></label>
+      <label class="field"><span>Importe (€)</span><input class="inp" id="oImporte" inputmode="decimal" value="${esc(d.importe||'')}" placeholder="Opcional" autocomplete="off"></label></div>
+      <label class="field"><span>Notas</span><textarea class="inp" id="oNotas" placeholder="Dónde está el original, nº de cliente…">${esc(d.notas||'')}</textarea></label>
+      <p class="err" id="shErr">${SH.err?esc(SH.err):''}</p>
+      <button type="button" class="btn white full" data-act="o:save" style="padding:15px">${edit?'Guardar cambios':'Guardar documento'}</button>`;
+  }
+  const sh=$('#sheet'),top=sh.scrollTop;sh.innerHTML=h;if(SH.step==='form')sh.scrollTop=top;
+}
+function oReadForm(){if(!SH||!SH.draft)return;const d=SH.draft,g=id=>document.getElementById(id);
+  if(g('oNombre'))d.nombre=g('oNombre').value.trim();if(g('oFecha'))d.fecha=g('oFecha').value||d.fecha;
+  if(g('oImporte'))d.importe=g('oImporte').value.trim();if(g('oNotas'))d.notas=g('oNotas').value.trim()}
+async function oAddFiles(files,more){
+  if(!files||!files.length||!SH||SH.kind!=='o-add')return;
+  const tok=SH;if(more)oReadForm();SH.step='busy';SH.msg='Preparando…';SH.err='';oDrawSheet();
+  try{const r=await oFilesToPages([...files],m=>{const e=$('#oBusy');if(e)e.textContent=m});
+    if(SH!==tok)return;if(!r.pages.length)throw new Error('No he podido leer nada de ese archivo.');
+    if(more){const d=SH.draft;d.pages.push(...r.pages);if(d.pdf)d.pdf=''}
+    else SH.draft={pages:r.pages,pdf:r.pdf,pdfName:r.pdfName,nombre:r.name,categoria:'Facturas',fecha:todayISO(),importe:'',notas:''};
+    SH.step='form';
+  }catch(e){if(SH!==tok)return;SH.err=e&&e.message||'No he podido leer ese archivo.';SH.step=more?'form':'pick'}
+  oDrawSheet();if(!more&&SH&&SH.step==='form'&&!SH.draft.nombre)setTimeout(()=>{const n=$('#oNombre');if(n)n.focus()},80);
+}
+async function oSave(){
+  oReadForm();const d=SH.draft,err=$('#shErr');
+  if(!d.nombre){if(err)err.textContent='Ponle un nombre para encontrarlo luego.';const w=$('#ow-nombre');if(w)w.classList.add('bad');$('#oNombre').focus();return}
+  if(!d.pages.length){if(err)err.textContent='Añade al menos una foto o un PDF.';return}
+  const edit=SH.mode==='edit',id=edit?SH.id:oId(),old=oById(id);
+  let thumb='';try{thumb=await oThumb(d.pages[0])}catch(e){}
+  const doc={id,nombre:d.nombre,categoria:d.categoria||'Otros',fecha:d.fecha||todayISO(),importe:d.importe?oMoney(d.importe):'',notas:d.notas||'',
+    npages:d.pages.length,thumb,hasPdf:!!d.pdf,created:old&&old.created||Date.now(),updated:Date.now()};
+  const body={pages:d.pages,pdf:d.pdf||'',pdfName:d.pdfName||''};
+  try{await fdb.putDoc(doc,body)}catch(e){toast('No se ha podido guardar: puede que el móvil no tenga espacio.');return}
+  const at=DO.docs.findIndex(x=>x.id===id);if(at>=0)DO.docs[at]=doc;else DO.docs.push(doc);
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+  closeSheet();render();
+  if(DO.view&&DO.view.id===id){DO.view.body=body;oViewDraw()}
+  toast(edit?'Cambios guardados':'Documento guardado');
+}
+
+/* ---------- ver un documento (pantalla completa) ---------- */
+async function oOpen(id){DO.view={id,body:null,zoom:false,confirm:false};oViewDraw();
+  const b=await fdb.get('pages',id).catch(()=>null);if(DO.view&&DO.view.id===id){DO.view.body=b||{pages:[]};oViewDraw()}}
+function oViewDraw(){
+  const V=DO.view,d=V&&oById(V.id);if(!d){layerClose();return}
+  const pages=V.body?V.body.pages||[]:null,share=canShareFiles();
+  const sc=document.querySelector('.o-viewer'),top=sc?sc.scrollTop:0;
+  layerShow(`<div class="o-viewer${V.zoom?' z':''}" role="dialog" aria-modal="true" aria-label="${esc(d.nombre)}">
+    <div class="o-vhead"><button class="round" data-act="o:closeView" data-back aria-label="Volver">${ic('back2')}</button>
+      <div class="o-vt"><b>${esc(d.nombre)}</b><span>${esc(d.categoria)} · ${oDate(d.fecha)}${d.npages>1?` · ${d.npages} páginas`:''}</span></div></div>
+    <div class="o-vbody">
+      ${pages?pages.map((p,i)=>`<div class="o-vpage"><img src="${p}" alt="Página ${i+1}" data-act="o:zoom"></div>`).join(''):'<div class="b-busy"><span class="spin"></span></div>'}
+      ${d.importe||d.notas?`<dl class="o-info">${d.importe?`<div><dt>Importe</dt><dd>${esc(oMoney(d.importe))} €</dd></div>`:''}<div><dt>Fecha</dt><dd>${oDate(d.fecha)}</dd></div>${d.notas?`<div class="s2"><dt>Notas</dt><dd class="nt">${esc(d.notas)}</dd></div>`:''}</dl>`:''}
+      ${V.confirm?`<div class="b-confirm dark"><span>¿Borrar «${esc(d.nombre)}»?</span><button data-act="o:delNo">No</button><button class="yes" data-act="o:delYes">Borrar</button></div>`
+        :''}
+    </div>
+    ${V.confirm?'':`<div class="o-acts">${share?`<button data-act="o:share" ${pages?'':'disabled'}>${ic('share')}Compartir</button>`:''}<button data-act="o:download" ${pages?'':'disabled'}>${ic('download')}Descargar</button>
+      <button data-act="o:edit" ${pages?'':'disabled'}>${ic('pencil')}Editar</button><button class="del" data-act="o:del">${ic('trash')}Borrar</button></div>`}
+    </div>`,'o-view',()=>{DO.view=null});
+  const sc2=document.querySelector('.o-viewer');if(sc2)sc2.scrollTop=top;
+}
+/* El PDF original si lo hay; si son fotos, se juntan en un PDF */
+async function oPdfBlob(d,b){
+  if(b.pdf)return dataURLtoBlob(b.pdf);
+  const J=window.jspdf&&window.jspdf.jsPDF;if(!J)throw new Error('pdf');
+  let doc=null;
+  for(const p of b.pages){const img=await imgFromURL(p);const w=img.naturalWidth,h=img.naturalHeight,k=595/Math.max(1,w),W=595,H=Math.round(h*k);
+    if(!doc)doc=new J({unit:'pt',format:[W,H],orientation:H>=W?'portrait':'landscape'});else doc.addPage([W,H],H>=W?'portrait':'landscape');
+    doc.addImage(p,'JPEG',0,0,W,H)}
+  return doc.output('blob');
+}
+async function oDownload(){const V=DO.view,d=V&&oById(V.id);if(!d||!V.body)return;
+  try{const blob=await oPdfBlob(d,V.body);if(await saveBlob(blob,safeName(d.nombre)+'.pdf'))toast('Descargado en tu móvil')}catch(e){toast('No se ha podido preparar el PDF.')}}
+async function oShare(){const V=DO.view,d=V&&oById(V.id);if(!d||!V.body)return;
+  try{const blob=await oPdfBlob(d,V.body);await shareFiles([new File([blob],safeName(d.nombre)+'.pdf',{type:'application/pdf'})],d.nombre)}catch(e){toast('No se ha podido preparar el PDF.')}}
+
+/* ---------- copia ---------- */
+async function oExport(){const out=[];for(const d of DO.docs){const b=await fdb.get('pages',d.id).catch(()=>null)||{};out.push({...d,pages:b.pages||[],pdf:b.pdf||'',pdfName:b.pdfName||''})}return out}
+async function oImport(arr,replace){
+  if(replace){try{await fdb.clear('docs');await fdb.clear('pages')}catch(e){}DO.docs=[]}
+  let n=0;
+  for(const r of Array.isArray(arr)?arr:[]){
+    if(!r||typeof r!=='object'||r.sample||!Array.isArray(r.pages))continue;
+    const pages=r.pages.filter(p=>typeof p==='string'&&p.startsWith('data:image/'));if(!pages.length)continue;
+    const hasPdf=typeof r.pdf==='string'&&r.pdf.startsWith('data:application/pdf');
+    let thumb=typeof r.thumb==='string'&&r.thumb.startsWith('data:image/')?r.thumb:'';if(!thumb){try{thumb=await oThumb(pages[0])}catch(e){}}
+    const doc={id:typeof r.id==='string'&&r.id?r.id:oId(),nombre:String(r.nombre||'Documento'),categoria:O_CATS.includes(r.categoria)?r.categoria:'Otros',
+      fecha:/^\d{4}-\d{2}-\d{2}$/.test(r.fecha||'')?r.fecha:todayISO(),importe:String(r.importe||''),notas:String(r.notas||''),npages:pages.length,thumb,hasPdf,
+      created:+r.created||Date.now(),updated:+r.updated||Date.now()};
+    try{await fdb.putDoc(doc,{pages,pdf:hasPdf?r.pdf:'',pdfName:String(r.pdfName||'')})}catch(e){continue}
+    const at=DO.docs.findIndex(x=>x.id===doc.id);if(at>=0)DO.docs[at]=doc;else DO.docs.push(doc);n++;
+  }
+  return n;
+}
+
+/* ---------- eventos ---------- */
+SECT.o={click(a,b){
+  switch(a){
+    case 'add':SH={kind:'o-add',mode:'add',step:'pick',err:''};oDrawSheet();openSheet();break;
+    case 'close':{const back=SH&&SH.mode==='edit'&&DO.view;closeSheet();if(back)oViewDraw();break}
+    case 'cat':DO.cat=b.dataset.v;$('#oChips').innerHTML=oChipsHTML();$('#oList').innerHTML=oListHTML();break;
+    case 'pickCat':if(SH&&SH.draft){SH.draft.categoria=b.dataset.v;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)))}break;
+    case 'rmPage':oReadForm();SH.draft.pages.splice(+b.dataset.i,1);SH.draft.pdf='';oDrawSheet();break;
+    case 'save':oSave();break;
+    case 'open':oOpen(b.dataset.id);break;
+    case 'closeView':layerClose();break;
+    case 'zoom':if(DO.view){DO.view.zoom=!DO.view.zoom;oViewDraw()}break;
+    case 'edit':{const V=DO.view,d=V&&oById(V.id);if(!d||!V.body)break;
+      SH={kind:'o-add',mode:'edit',step:'form',id:d.id,err:'',draft:{...d,pages:[...(V.body.pages||[])],pdf:V.body.pdf||'',pdfName:V.body.pdfName||''}};
+      layerClose();DO.view={id:d.id,body:V.body,zoom:false,confirm:false};oDrawSheet();openSheet();break}
+    case 'download':oDownload();break;
+    case 'share':oShare();break;
+    case 'del':DO.view.confirm=true;oViewDraw();break;
+    case 'delNo':DO.view.confirm=false;oViewDraw();break;
+    case 'delYes':{const id=DO.view.id;fdb.delDoc(id).catch(()=>{});DO.docs=DO.docs.filter(d=>d.id!==id);layerClose();render();toast('Documento borrado');break}
+  }}};
+document.addEventListener('change',e=>{const t=e.target;if(!t.dataset||!t.dataset.ofiles)return;const fs=t.files?[...t.files]:[];t.value='';oAddFiles(fs,t.dataset.ofiles==='more')});
+document.addEventListener('input',e=>{if(e.target.id==='oNombre'){const w=$('#ow-nombre');if(w)w.classList.remove('bad');const r=$('#shErr');if(r)r.textContent=''}
+  if(e.target.id==='oQ'){DO.q=e.target.value;const l=$('#oList');if(l)l.innerHTML=oListHTML()}});
+
+/* ================= DESPENSA ================= */
+const DS={products:[],compra:[],prefs:{sort:'cad'},tab:'despensa',showOut:false,pendingImport:null};
+const LSD='mi-dia-despensa-v1';
+const dLast=(y,m)=>new Date(y,m,0).getDate();
+const dIsoOf=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+function dAddMonths(s,n){const y=+s.slice(0,4),m=+s.slice(5,7),d=+s.slice(8,10);let mm=m-1+n;const yy=y+Math.floor(mm/12);mm=((mm%12)+12)%12;return yy+'-'+pad(mm+1)+'-'+pad(Math.min(d,dLast(yy,mm+1)))}
+const dLimit=()=>dAddMonths(todayISO(),3);
+const dDays=(a,b)=>Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5);
+function dState(cad){if(!cad)return 'none';if(cad<todayISO())return 'gone';if(cad<dLimit())return 'soon';return 'ok'}
+function dFmt(cad,dia){if(!cad)return 'Sin fecha';const y=cad.slice(0,4),m=+cad.slice(5,7),d=+cad.slice(8,10);return dia?`${d} ${MES3[m-1]} ${y}`:`${MES3[m-1]} ${y}`}
+function dFmtLong(cad,dia){if(!cad)return 'Sin fecha';const y=cad.slice(0,4),m=+cad.slice(5,7),d=+cad.slice(8,10);return dia?`${d} de ${MESES[m-1]} de ${y}`:`${cap(MESES[m-1])} de ${y}`}
+function dRel(cad){if(!cad)return '';const n=dDays(todayISO(),cad);
+  if(n<0)return n===-1?'Caducó ayer':`Caducó hace ${-n<60?-n+' días':Math.round(-n/30.4)+' meses'}`;
+  if(n===0)return 'Caduca hoy';if(n===1)return 'Caduca mañana';if(n<45)return `Caduca en ${n} días`;
+  if(n<548)return `Caduca en ${Math.round(n/30.4)} meses`;const a=Math.round(n/365*2)/2;return `Caduca en ${String(a).replace('.',',')} años`}
+function dTag(cad,dia){const s=dState(cad);return `<span class="d-tag ${s}">${s==='gone'?'Caducado':esc(dFmt(cad,dia))}</span>`}
+
+/* ---------- datos (en el móvil, junto al resto de Mi día a día) ---------- */
+const dClean=p=>({min:1,marca:'',cant:'',foto:'',fotoUrl:'',code:null,...p,units:Array.isArray(p.units)?p.units:[]});
+function dApply(d){d=d||{};
+  DS.products=(Array.isArray(d.products)?d.products:[]).filter(p=>p&&typeof p.nombre==='string').map(dClean);
+  DS.compra=(Array.isArray(d.compra)?d.compra:[]).filter(c=>c&&typeof c.nombre==='string');
+  DS.prefs={sort:'cad',...(d.prefs||{})};}
+function dLoad(){try{const d=JSON.parse(kvGet(LSD)||'null');if(d)dApply(d)}catch(e){}}
+let dSaveT=null;
+function dSave(){clearTimeout(dSaveT);dSaveT=setTimeout(dFlush,200)}
+function dFlush(){clearTimeout(dSaveT);dSaveT=null;try{kvSet(LSD,JSON.stringify({products:DS.products,compra:DS.compra,prefs:DS.prefs}))}catch(e){toast('No se ha podido guardar en el móvil.')}}
+window.addEventListener('pagehide',()=>{if(dSaveT)dFlush()});
+
+/* ---------- productos ---------- */
+const dById=id=>DS.products.find(p=>p.id===id);
+const dByCode=c=>c?DS.products.find(p=>p.code===c):null;
+const dKey=u=>u.cad||'9999-99-99';
+const dSorted=p=>p.units.slice().sort((a,b)=>dKey(a)<dKey(b)?-1:dKey(a)>dKey(b)?1:(a.t||0)-(b.t||0));
+const dNearest=p=>dSorted(p)[0]||null;
+const dGKey=g=>(g.cad||'')+'|'+(g.dia?1:0);
+function dGroups(p){const m=new Map();for(const u of dSorted(p)){const k=dGKey(u);if(!m.has(k))m.set(k,{cad:u.cad||null,dia:!!u.dia,units:[]});m.get(k).units.push(u)}return [...m.values()]}
+const dSub=p=>[p.marca,p.cant].filter(Boolean).join(' · ');
+function dThumb(p,lg){const src=p&&(p.foto||p.fotoUrl),l=cap((p&&p.nombre||'?').trim().charAt(0))||'?';
+  return `<span class="d-pth ${lg?'lg':''}" data-l="${esc(l)}">${src?`<img src="${esc(src)}" alt="" onerror="this.parentNode.textContent=this.parentNode.dataset.l">`:esc(l)}</span>`}
+function dSoon(){let n=0;for(const p of DS.products)for(const u of p.units){const s=dState(u.cad);if(s==='soon'||s==='gone')n++}return n}
+
+/* Lista de la compra automática: si quedan menos del mínimo se apunta sola; si vuelves a tener, se quita */
+function dSyncCompra(p){
+  const need=(p.min||0)>0&&p.units.length<p.min,items=DS.compra.filter(c=>c.pid===p.id&&c.auto);
+  if(need){if(!items.some(c=>!c.hecha)){DS.compra.push({id:newId(),pid:p.id,nombre:p.nombre,auto:true,hecha:null,t:Date.now()});return 'added'}}
+  else if(items.length){DS.compra=DS.compra.filter(c=>!items.includes(c));return 'removed'}
+  for(const c of items)c.nombre=p.nombre;return null;
+}
+let dLastTake=null;
+function dTakeOne(pid){
+  const p=dById(pid);if(!p||!p.units.length)return null;
+  const u=dSorted(p)[0];p.units.splice(p.units.indexOf(u),1);p.t=Date.now();
+  const c=dSyncCompra(p);dSave();dLastTake={pid,u};
+  toastAction(`Sacada 1 · ${p.nombre}`+(p.units.length?` · quedan ${p.units.length}`:' · se ha acabado')+(c==='added'?'. Apuntado en la compra':''),'Deshacer','d:undoTake');
+  return u;
+}
+function dUndoTake(){if(!dLastTake)return;const p=dById(dLastTake.pid);if(p){p.units.push(dLastTake.u);dSyncCompra(p);dSave()}dLastTake=null;$('#toast').hidden=true;render();if(SH&&SH.kind==='d-prod')dDrawProduct()}
+
+/* ---------- vistas ---------- */
+function renderDespensa(){
+  const pend=DS.compra.filter(c=>!c.hecha).length,soon=dSoon();
+  $('#top').innerHTML=`<button class="round back" data-act="home" aria-label="Volver a Mi día a día">${ic('back2')}</button><div class="period"><span class="ttitle">${DS.tab==='compra'?'Lista de la compra':'Despensa'}</span></div>`;
+  const T=(id,icon,l,bd)=>`<button class="tab" data-act="d:tab" data-tab="${id}" ${DS.tab===id?'aria-current="page"':''}>${ic(icon)}${l}${bd||''}</button>`;
+  $('#tabbar').innerHTML=T('despensa','box','Despensa',soon?`<span class="d-bd red">${soon}</span>`:'')+`<button class="add" data-act="d:scan" aria-label="Escanear un código de barras">${ic('scan')}</button>`+T('compra','cart','Compra',pend?`<span class="d-bd">${pend}</span>`:'');
+  const v=$('#view');
+  if(!S.ready){v.innerHTML='<div class="loading">Abriendo la despensa…</div>';return}
+  const a=document.activeElement;if(DS.tab==='compra'&&a&&a.id==='dNew'&&a.value)return;
+  v.innerHTML=`<div class="wrap screen" style="gap:14px">${DS.tab==='compra'?dViewCompra():dViewDespensa()}</div>`;
+}
+function dViewDespensa(){
+  const P=DS.products;
+  if(!P.length)return `<div class="tempty b-empty">${ic('scan')}<b>Tu despensa está vacía</b>Escanea el código de barras de un producto<br>para meterlo con su fecha de caducidad.</div>
+    <button class="btn mint full big" data-act="d:scanIn">${ic('scan')} Escanear un producto</button>
+    <button class="btn ghost full" data-act="d:manualNew">${ic('plus')} Añadir uno sin código</button>`;
+  const inS=P.filter(p=>p.units.length),out=P.filter(p=>!p.units.length);
+  let h=dAlertHTML(inS);
+  const nu=inS.reduce((s,p)=>s+p.units.length,0),az=(a,b)=>a.nombre.localeCompare(b.nombre,'es',{sensitivity:'base'});
+  const L=inS.slice().sort(DS.prefs.sort==='az'?az:(a,b)=>{const x=dKey(dNearest(a)),y=dKey(dNearest(b));return x<y?-1:x>y?1:az(a,b)});
+  h+=`<div class="d-toolbar"><span><b>${inS.length}</b> ${plural(inS.length,'producto','productos')} · <b>${nu}</b> ${plural(nu,'unidad','unidades')}</span>
+    ${inS.length>1?`<button class="d-pill" data-act="d:sort">${ic('sort')}${DS.prefs.sort==='az'?'De la A a la Z':'Por caducidad'}</button>`:''}</div>`;
+  h+=L.length?`<div class="d-plist">${L.map(dRowHTML).join('')}</div>`:`<div class="d-okline">${ic('box')}No queda nada en la despensa.</div>`;
+  if(out.length){h+=`<button class="b-fold" data-act="d:toggleOut" aria-expanded="${DS.showOut}"><span>Agotados · ${out.length}</span>${ic(DS.showOut?'up':'down')}</button>`;
+    if(DS.showOut)h+=`<div class="d-plist">${out.slice().sort(az).map(dRowHTML).join('')}</div>`}
+  h+=`<button class="btn ghost full" data-act="d:manualNew">${ic('plus')} Añadir producto sin código</button>`;
+  return h;
+}
+function dAlertHTML(inS){
+  const items=[];
+  for(const p of inS){const su=p.units.filter(u=>{const s=dState(u.cad);return s==='soon'||s==='gone'});
+    if(su.length){const f=su.slice().sort((a,b)=>dKey(a)<dKey(b)?-1:1)[0];items.push({p,n:su.length,cad:f.cad,dia:f.dia})}}
+  if(!items.length)return `<div class="d-okline">${ic('check')}Nada caduca en los próximos 3 meses.</div>`;
+  items.sort((a,b)=>a.cad<b.cad?-1:a.cad>b.cad?1:0);
+  const units=items.reduce((s,x)=>s+x.n,0),gone=items.reduce((s,x)=>s+x.p.units.filter(u=>dState(u.cad)==='gone').length,0);
+  return `<section class="d-alert"><div class="ah"><div><div class="k">${ic('alert')}Caducan en menos de 3 meses</div><div class="big">${units}<small>${plural(units,'unidad','unidades')}</small></div></div>${gone?`<span class="d-tag gone">${gone} ${plural(gone,'caducada','caducadas')}</span>`:''}</div>
+    ${items.slice(0,5).map(x=>`<button class="arow" data-act="d:pOpen" data-id="${esc(x.p.id)}"><span class="t"><b>${esc(x.p.nombre)}</b><small>${x.n} ${plural(x.n,'ud','uds')} · ${esc(dRel(x.cad))}</small></span>${dTag(x.cad,x.dia)}</button>`).join('')}
+    ${items.length>5?`<p class="amore">Y ${items.length-5} ${plural(items.length-5,'producto','productos')} más, marcados en rojo en la lista.</p>`:''}</section>`;
+}
+function dRowHTML(p){
+  const u=dNearest(p),n=p.units.length,G=n?dGroups(p).length:0,sub=[dSub(p),G>1?`${G} fechas`:''].filter(Boolean).join(' · ');
+  return `<button class="d-prow ${n?'':'out'}" data-act="d:pOpen" data-id="${esc(p.id)}">${dThumb(p)}<span class="pt"><b>${esc(p.nombre)}</b>${sub?`<small>${esc(sub)}</small>`:''}</span>
+    <span class="pr">${n?`<span class="pn">${n}<small>${plural(n,'ud','uds')}</small></span>${u&&u.cad?dTag(u.cad,u.dia):'<span class="d-tag none">Sin fecha</span>'}`:'<span class="d-tag none">Agotado</span>'}</span></button>`;
+}
+function dViewCompra(){
+  const pend=DS.compra.filter(c=>!c.hecha).sort((a,b)=>(b.t||0)-(a.t||0)),done=DS.compra.filter(c=>c.hecha).sort((a,b)=>b.hecha-a.hecha);
+  let h=`<div class="addbar"><input class="inp" id="dNew" maxlength="80" autocomplete="off" placeholder="Añadir a la lista…" aria-label="Añadir a la lista de la compra" enterkeyhint="done"><button class="addbtn" data-act="d:cAdd" aria-label="Añadir">${ic('plus')}</button></div>`;
+  if(!pend.length&&!done.length)return h+`<div class="tempty">${ic('cart')}La lista está vacía.<br>Cuando se te acabe algo de la despensa,<br>aparecerá aquí solo.</div>`;
+  h+=pend.length?`<div class="tlist">${pend.map(dCRow).join('')}</div>`:`<div class="d-okline">${ic('check')}Ya lo tienes todo en el carro.</div>`;
+  if(done.length)h+=`<div><div class="tday"><span>En el carro · ${done.length}</span><button class="d-clear" data-act="d:cClear">Quitar de la lista</button></div><div class="tlist">${done.map(dCRow).join('')}</div></div>`;
+  return h;
+}
+function dCRow(c){
+  const p=c.pid?dById(c.pid):null;let sub='';
+  if(c.auto&&p)sub=p.units.length?`Quedan ${p.units.length} · quieres tener ${p.min}`:'Se ha acabado en la despensa';
+  return `<div class="task ${c.hecha?'done':''}"><div class="trow"><button class="chk ${c.hecha?'on':''}" data-act="d:cTick" data-id="${esc(c.id)}" aria-label="${c.hecha?'Desmarcar':'Marcar como cogido'}">${ic('check')}</button>
+    <button class="ttext" ${p?`data-act="d:pOpen" data-id="${esc(p.id)}"`:`data-act="d:cTick" data-id="${esc(c.id)}"`}><b>${esc(c.nombre)}</b>${sub?`<small>${esc(sub)}</small>`:''}</button>
+    <button class="d-cdel" data-act="d:cDel" data-id="${esc(c.id)}" aria-label="Quitar de la lista">${ic('x')}</button></div></div>`;
+}
+function dCAdd(){const i=$('#dNew');const v=(i.value||'').trim();if(!v){i.focus();return}
+  DS.compra.push({id:newId(),nombre:cap(v),auto:false,hecha:null,t:Date.now()});dSave();i.value='';render();const n=$('#dNew');if(n)n.focus()}
+
+/* ---------- hojas ---------- */
+const dHead=t=>`<div class="grab"></div><div class="sh"><h2>${t}</h2><button type="button" class="round" data-act="d:close" aria-label="Cerrar">${ic('x')}</button></div>`;
+const dCam=purpose=>`<input type="file" accept="image/*" capture="environment" class="vh" data-dcam="${purpose}" tabindex="-1">`;
+function dHide(){$('#sheet').hidden=true;$('#scrim').hidden=true;$('#sheet').innerHTML='';SH=null;document.body.style.overflow=''}
+function dCloseSheet(){const prod=SH&&SH.kind==='d-add'&&SH.fromProd&&SH.pid;dHide();render();if(prod&&dById(prod))dOpenProduct(prod)}
+function dOpenPick(){
+  SH={kind:'d-pick'};
+  $('#sheet').innerHTML=dHead('Escanear')+`<div class="d-pick">
+    <button type="button" class="d-ptile in" data-act="d:scanIn"><span class="pi">${ic('pkgin')}</span><span><b>Meter</b><small>Lo que traes de la compra</small></span></button>
+    <button type="button" class="d-ptile out" data-act="d:scanOut"><span class="pi">${ic('pkgout')}</span><span><b>Sacar</b><small>Lo que vas a gastar</small></span></button></div>
+    <div class="d-pickrow"><button type="button" class="btn mini" data-act="d:typeCode">${ic('keyboard')} Escribir código</button><button type="button" class="btn mini" data-act="d:manualNew">${ic('plus')} Sin código</button></div>`;
+  openSheet();
+}
+
+/* ---------- cámara en directo para leer el código de barras ---------- */
+const D_FMT=['ean_13','ean_8','upc_a','upc_e'];
+function dEanOk(c){if(!/^\d+$/.test(c)||![8,12,13,14].includes(c.length))return false;const d=c.split('').map(Number),k=d.pop();let s=0;d.reverse().forEach((x,i)=>{s+=x*(i%2===0?3:1)});return (10-s%10)%10===k}
+function dNorm(c){c=String(c||'').replace(/\D/g,'');if(c.length===12)c='0'+c;if(c.length===14&&c[0]==='0')c=c.slice(1);return c}
+function dPickNative(res){for(const b of res||[]){const raw=String(b.rawValue||'').trim();if(!/^\d{6,14}$/.test(raw))continue;if(b.format==='upc_e')return raw;if(dEanOk(raw))return dNorm(raw)}return null}
+let dNativeP=null;
+function dNative(){return dNativeP||(dNativeP=(async()=>{try{if(!('BarcodeDetector' in window))return null;const f=await window.BarcodeDetector.getSupportedFormats();const use=D_FMT.filter(x=>f.includes(x));return use.includes('ean_13')?new window.BarcodeDetector({formats:use}):null}catch(e){return null}})())}
+async function dZxReader(){const Z=await loadZX();const h=new Map();h.set(Z.DecodeHintType.POSSIBLE_FORMATS,[Z.BarcodeFormat.EAN_13,Z.BarcodeFormat.EAN_8,Z.BarcodeFormat.UPC_A,Z.BarcodeFormat.UPC_E]);h.set(Z.DecodeHintType.TRY_HARDER,true);const r=new Z.MultiFormatReader();r.setHints(h);return {Z,r}}
+function dZxRead(zx,cnv){try{const res=zx.r.decode(new zx.Z.BinaryBitmap(new zx.Z.HybridBinarizer(new zx.Z.HTMLCanvasElementLuminanceSource(cnv))));const t=String(res.getText()||'');if(/^\d{8,13}$/.test(t)){const c=dNorm(t);if(dEanOk(c)||t.length===8)return c}}catch(e){}finally{try{zx.r.reset()}catch(e){}}return null}
+const SC={stream:null,raf:0,mode:'in',busy:false,det:null,zx:null,cnv:null,torch:false,last:'',hits:0};
+async function dScanOpen(mode){
+  if(SH)dHide();
+  SC.mode=mode;SC.last='';SC.hits=0;SC.torch=false;
+  layerShow(`<div class="d-scan" role="dialog" aria-modal="true" aria-label="Escanear">
+    <video id="dVid" playsinline muted autoplay></video>
+    <div class="d-shade"><div class="d-frame"><i></i></div></div>
+    <div class="d-sbar"><button class="d-sround" data-act="d:scanClose" data-back aria-label="Cerrar">${ic('x')}</button><span>${mode==='out'?'Sacar de la despensa':'Meter en la despensa'}</span><button class="d-sround" id="dTorch" data-act="d:torch" aria-label="Linterna" hidden>${ic('zap')}</button></div>
+    <div class="d-sfoot"><p id="dScanMsg">Encuadra el código de barras dentro del recuadro</p>
+      <div class="d-sacts"><label class="btn">${ic('camera')} Hacer foto${dCam(mode)}</label><button class="btn" data-act="d:typeCode" data-mode="${mode}">${ic('keyboard')} Escribir código</button></div></div>
+  </div>`,'d-scan',dScanStop);
+  const msg=t=>{const m=$('#dScanMsg');if(m)m.textContent=t};
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('nocam');
+    const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
+    if(LY.kind!=='d-scan'){st.getTracks().forEach(t=>t.stop());return}
+    SC.stream=st;const v=$('#dVid');v.srcObject=st;try{await v.play()}catch(e){}
+    try{const tr=st.getVideoTracks()[0],cap=tr.getCapabilities&&tr.getCapabilities();if(cap&&cap.torch){const b=$('#dTorch');if(b)b.hidden=false}}catch(e){}
+    SC.det=await dNative();
+    if(!SC.det){try{SC.zx=SC.zx||await dZxReader()}catch(e){msg('No se ha podido cargar el lector. Haz una foto o escribe el código.');return}}
+    if(LY.kind!=='d-scan')return;
+    dScanLoop();
+  }catch(e){
+    msg(e&&e.name==='NotAllowedError'?'No hay permiso para usar la cámara. Haz una foto o escribe el código.':'No se puede abrir la cámara aquí. Haz una foto o escribe el código.');
+    const f=document.querySelector('.d-scan');if(f)f.classList.add('nocam');
+  }
+}
+function dScanLoop(){
+  let last=0;
+  const step=async ts=>{
+    if(LY.kind!=='d-scan'||!SC.stream)return;
+    SC.raf=requestAnimationFrame(step);
+    if(SC.busy||ts-last<(SC.det?120:260))return;last=ts;
+    const v=$('#dVid');if(!v||v.readyState<2||!v.videoWidth)return;
+    SC.busy=true;let code=null;
+    try{
+      if(SC.det)code=dPickNative(await SC.det.detect(v));
+      else if(SC.zx){const W=v.videoWidth,H=v.videoHeight,cw=Math.round(W*.86),ch=Math.round(H*.5);
+        const k=Math.min(1,960/cw);SC.cnv=SC.cnv||document.createElement('canvas');SC.cnv.width=Math.round(cw*k);SC.cnv.height=Math.round(ch*k);
+        const x=SC.cnv.getContext('2d',{willReadFrequently:true});x.drawImage(v,(W-cw)/2,(H-ch)/2,cw,ch,0,0,SC.cnv.width,SC.cnv.height);code=dZxRead(SC.zx,SC.cnv)}
+    }catch(e){}
+    SC.busy=false;
+    if(!code||LY.kind!=='d-scan')return;
+    if(SC.det||code===SC.last){SC.hits=0;dScanHit(code)}else{SC.last=code}
+  };
+  SC.raf=requestAnimationFrame(step);
+}
+function dScanStop(){cancelAnimationFrame(SC.raf);SC.raf=0;if(SC.stream){SC.stream.getTracks().forEach(t=>{try{t.stop()}catch(e){}});SC.stream=null}SC.busy=false}
+function dScanHit(code){try{navigator.vibrate&&navigator.vibrate(60)}catch(e){}const mode=SC.mode;layerClose();dGotCode(code,mode)}
+async function dTorch(){const tr=SC.stream&&SC.stream.getVideoTracks()[0];if(!tr)return;try{await tr.applyConstraints({advanced:[{torch:!SC.torch}]});SC.torch=!SC.torch;const b=$('#dTorch');if(b)b.classList.toggle('on',SC.torch)}catch(e){}}
+/* Qué hacer con un código leído */
+function dGotCode(code,mode){
+  const p=dByCode(code);
+  if(mode==='out'){
+    if(!p||!p.units.length){toastAction(p?`No te queda ${p.nombre}`:`El código ${code} no está en tu despensa`,p?'Escanear otro':'Meterlo',p?'d:scanOut':'d:inCode:'+code);render();return}
+    dTakeOne(p.id);render();return;
+  }
+  if(p){dOpenAdd({pid:p.id,scan:true});return}
+  dOpenAdd({code,scan:true});
+}
+/* Con una foto, si la cámara en directo no va */
+async function dDecodeImage(file){
+  let img;try{img=await imgFromFile(file)}catch(e){return null}
+  const can=(s,rot)=>{const k=Math.min(1,s/Math.max(img.naturalWidth,img.naturalHeight)),w=Math.round(img.naturalWidth*k),h=Math.round(img.naturalHeight*k),c=document.createElement('canvas');
+    if(rot){c.width=h;c.height=w}else{c.width=w;c.height=h}const x=c.getContext('2d',{willReadFrequently:true});
+    if(rot){x.translate(h/2,w/2);x.rotate(Math.PI/2);x.drawImage(img,-w/2,-h/2,w,h)}else x.drawImage(img,0,0,w,h);return c};
+  const det=await dNative();
+  if(det){for(const s of [1600,1000,2400]){try{const r=dPickNative(await det.detect(can(s,0)));if(r)return r}catch(e){}}}
+  let zx;try{zx=await dZxReader()}catch(e){return null}
+  for(const [s,rot] of [[1400,0],[900,0],[2000,0],[1400,1],[700,0]]){await tickMs(16);const r=dZxRead(zx,can(s,rot));if(r)return r}
+  return null;
+}
+async function dOnPhoto(file,purpose){
+  if(!file)return;
+  if(purpose==='in'||purpose==='out'){
+    if(LY.kind==='d-scan')layerClose();
+    const url=URL.createObjectURL(file),tok={};
+    SH={kind:'d-read',purpose,url,tok};
+    $('#sheet').innerHTML=dHead(purpose==='out'?'Sacar de la despensa':'Meter en la despensa')+`<div class="d-reading"><img class="d-shot" src="${url}" alt="Tu foto">
+      <div class="d-status" id="dRdSt"><span class="spin"></span><span>Leyendo el código de barras…</span></div><p id="dRdTx"></p><div id="dRdActs" class="d-rdacts"></div></div>`;
+    openSheet();
+    const code=await dDecodeImage(file);
+    if(!SH||SH.tok!==tok)return;
+    if(!code){
+      const s=$('#dRdSt');s.className='d-status bad';s.innerHTML=ic('alert')+'<span>No se ha podido leer el código</span>';
+      $('#dRdTx').textContent='Repite la foto más cerca y con buena luz, o escribe los números.';
+      $('#dRdActs').innerHTML=`<label class="btn white full">${ic('camera')} Repetir la foto${dCam(purpose)}</label><button type="button" class="btn full" data-act="d:typeCode" data-mode="${purpose}">${ic('keyboard')} Escribir el código</button>${purpose==='in'?`<button type="button" class="btn ghost full" data-act="d:manualNew">${ic('plus')} Meterlo sin código</button>`:''}`;
+      return;
+    }
+    URL.revokeObjectURL(url);dHide();dGotCode(code,purpose);return;
+  }
+  if(purpose==='add'&&SH&&SH.kind==='d-add'&&SH.draft){dReadDraft();try{SH.draft.foto=await dShrink(file,320,.8);SH.draft.fotoUrl=''}catch(e){toast('No se puede leer esa foto.');return}const ph=$('#dAddPh');if(ph)ph.innerHTML=dPhBtn(SH.draft,'add');return}
+  if(purpose==='prod'&&SH&&SH.kind==='d-prod'){const p=dById(SH.id);if(!p)return;try{p.foto=await dShrink(file,320,.8);p.fotoUrl=''}catch(e){toast('No se puede leer esa foto.');return}dSave();const ph=$('#dProdPh');if(ph)ph.innerHTML=dPhBtn(p,'prod');render();toast('Foto guardada');return}
+}
+async function dShrink(blob,max,q){const img=await imgFromFile(blob);return fitCanvas(img,max).toDataURL('image/jpeg',q)}
+
+/* ---------- qué producto es: Open Food Facts (base de datos abierta), y si no, a mano ---------- */
+async function dLookup(code){
+  const ctl=typeof AbortController!=='undefined'?new AbortController():null,to=setTimeout(()=>ctl&&ctl.abort(),7000);
+  try{
+    const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,product_name_es,generic_name_es,brands,quantity,image_front_small_url,image_small_url`,{signal:ctl&&ctl.signal});
+    if(r.status===404)return {miss:true};if(!r.ok)throw new Error('http');
+    const j=await r.json();if(!j||j.status!==1||!j.product)return {miss:true};
+    const p=j.product,nombre=String(p.product_name_es||p.product_name||p.generic_name_es||'').trim();
+    if(!nombre)return {miss:true};
+    return {nombre,marca:String(p.brands||'').split(',')[0].trim(),cant:String(p.quantity||'').trim(),img:p.image_front_small_url||p.image_small_url||''};
+  }catch(e){return {fail:true,offline:navigator.onLine===false}}finally{clearTimeout(to)}
+}
+async function dImgToData(url){try{const r=await fetch(url,{mode:'cors'});if(!r.ok)return '';const b=await r.blob();return await dShrink(b,320,.8)}catch(e){return ''}}
+
+/* ---------- selector de fecha: año y mes, día opcional ---------- */
+function dNewDp(cad,dia){if(!cad)return {y:null,m:null,d:'',none:false};return {y:+cad.slice(0,4),m:+cad.slice(5,7),d:dia?String(+cad.slice(8,10)):'',none:false}}
+function dDpCad(dp){if(dp.none||!dp.y||!dp.m)return null;const d=dp.d?+dp.d:dLast(dp.y,dp.m);return dp.y+'-'+pad(dp.m)+'-'+pad(Math.min(d,dLast(dp.y,dp.m)))}
+function dDpSum(dp){
+  if(dp.none)return `<b class="faint">Sin fecha de caducidad</b><small></small>`;
+  if(!dp.y||!dp.m)return `<b class="faint">Elige el mes y el año</b><small></small>`;
+  if(dp.d&&!(+dp.d>=1&&+dp.d<=dLast(dp.y,dp.m)))return `<b class="soon">Ese día no existe</b><small>${cap(MESES[dp.m-1])} tiene ${dLast(dp.y,dp.m)} días</small>`;
+  const cad=dDpCad(dp),s=dState(cad);
+  return `<b class="${s==='soon'||s==='gone'?'soon':''}">${esc(dFmtLong(cad,!!dp.d))}</b><small>${esc(dRel(cad))}</small>`;
+}
+function dDpHTML(dp){
+  const y0=new Date().getFullYear(),Y=[];for(let y=y0-1;y<=y0+6;y++)Y.push(y);if(dp.y&&!Y.includes(dp.y))Y.push(dp.y);Y.sort();
+  return `<div class="d-dp"><div class="d-dpsum" id="dDpSum" aria-live="polite">${dDpSum(dp)}</div>
+    <div class="d-chips" role="group" aria-label="Año">${Y.map(y=>`<button type="button" class="d-chip" data-act="d:dpY" data-v="${y}" aria-pressed="${dp.y===y&&!dp.none}">${y}</button>`).join('')}</div>
+    <div class="d-months" role="group" aria-label="Mes">${MES3.map((m,i)=>`<button type="button" data-act="d:dpM" data-v="${i+1}" aria-pressed="${dp.m===i+1&&!dp.none}" aria-label="${MESES[i]}">${m}</button>`).join('')}</div>
+    <div class="d-dprow"><label class="d-dayin"><span>Día <i>(opcional)</i></span><input id="dDpDay" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="—" autocomplete="off" value="${esc(dp.d)}" aria-label="Día de caducidad (opcional)"></label>
+    <button type="button" class="d-chip" data-act="d:dpNone" aria-pressed="${dp.none}">Sin fecha</button></div></div>`;
+}
+function dDpRedraw(){const b=$('#dDpBox');if(b&&SH&&SH.dp){const c0=b.querySelector('.d-chips'),sx=c0?c0.scrollLeft:0;b.innerHTML=dDpHTML(SH.dp);const c=b.querySelector('.d-chips');if(c)c.scrollLeft=sx}}
+function dDpScroll(){const b=$('#dDpBox .d-chips');if(!b||!SH||!SH.dp)return;const on=b.querySelector('[aria-pressed="true"]')||b.querySelector(`[data-v="${new Date().getFullYear()}"]`);if(on)b.scrollLeft=Math.max(0,on.offsetLeft-b.clientWidth/2+on.clientWidth/2)}
+function dDpValidate(){const dp=SH.dp;if(dp.none)return {cad:null,dia:false};
+  if(!dp.y||!dp.m)return {err:'Elige el mes y el año de caducidad, o marca «Sin fecha».'};
+  if(dp.d&&!(+dp.d>=1&&+dp.d<=dLast(dp.y,dp.m)))return {err:`${cap(MESES[dp.m-1])} de ${dp.y} no tiene día ${dp.d}.`};
+  return {cad:dDpCad(dp),dia:!!dp.d}}
+
+/* ---------- meter en la despensa ---------- */
+function dOpenAdd(o){
+  const p=o.pid?dById(o.pid):null;
+  SH={kind:'d-add',fromProd:!!o.fromProd,scan:!!o.scan,pid:p?p.id:null,draft:p?null:{code:o.code||null,nombre:'',marca:'',cant:'',foto:'',fotoUrl:''},qty:1,dp:dNewDp(null),look:null};
+  if(!p&&o.code)SH.look='search';
+  dDrawAdd();openSheet();dDpScroll();
+  if(!p&&o.code){const d=SH.draft;dLookup(o.code).then(async r=>{
+    if(!SH||SH.draft!==d)return;dReadDraft();
+    if(r.nombre){if(!d.nombre.trim())d.nombre=cap(r.nombre);if(!d.marca.trim())d.marca=r.marca;if(!d.cant)d.cant=r.cant;SH.look='found';
+      const n=$('#dName'),b=$('#dBrand');if(n&&!n.value.trim())n.value=d.nombre;if(b&&!b.value.trim())b.value=d.marca;
+      const c=$('#dCodeLine');if(c)c.textContent=`Código ${d.code}${d.cant?' · '+d.cant:''}`;
+      if(r.img&&!d.foto){const data=await dImgToData(r.img);if(SH&&SH.draft===d&&!d.foto){if(data)d.foto=data;else d.fotoUrl=r.img;const ph=$('#dAddPh');if(ph)ph.innerHTML=dPhBtn(d,'add')}}
+    }else{SH.look=r.fail?(r.offline?'offline':'fail'):'miss';const n=$('#dName');if(n&&!n.value)setTimeout(()=>n.focus({preventScroll:true}),60)}
+    dUpdLook()})}
+}
+function dLookHTML(){const L=SH&&SH.look;if(!L)return '';
+  if(L==='search')return `<div class="d-look"><span class="spin"></span><span>Buscando qué producto es…</span></div>`;
+  if(L==='found')return `<div class="d-look found">${ic('check')}<span>Encontrado. Cambia el nombre si quieres: la próxima vez lo reconocerá con el código.</span></div>`;
+  if(L==='offline')return `<div class="d-look miss">${ic('pencil')}<span>Sin conexión. Escribe el nombre: la próxima vez lo reconocerá solo.</span></div>`;
+  return `<div class="d-look miss">${ic('pencil')}<span>Producto nuevo. Escribe el nombre: la próxima vez lo reconocerá solo.</span></div>`}
+function dUpdLook(){const b=$('#dLookBox');if(b)b.innerHTML=dLookHTML()}
+function dPhBtn(o,key){const src=o.foto||o.fotoUrl;
+  return `<label class="d-phbtn" aria-label="${src?'Cambiar foto':'Hacer foto'}">${src?dThumb(o,true):`<span class="d-pth lg blank">${ic('camera')}</span>`}${src?`<span class="cam">${ic('camera')}</span>`:''}${dCam(key)}</label>`}
+function dDrawAdd(){
+  if(!SH||SH.kind!=='d-add')return;
+  const p=SH.pid?dById(SH.pid):null;let h=dHead(p?'Meter en la despensa':'Producto nuevo');
+  if(p){const u=dNearest(p),n=p.units.length;
+    h+=`<div class="d-hero">${dThumb(p,true)}<div class="t"><b>${esc(p.nombre)}</b>${dSub(p)?`<small>${esc(dSub(p))}</small>`:''}<small class="have">${n?`Ya tienes ${n} · ${u&&u.cad?'la más próxima, '+esc(dFmt(u.cad,u.dia)):'sin fecha'}`:'Ahora no te queda ninguno'}</small></div></div>`;
+  }else{const d=SH.draft;
+    h+=`<div id="dLookBox">${dLookHTML()}</div>
+    <div class="d-hero" style="margin-top:12px"><span id="dAddPh">${dPhBtn(d,'add')}</span><div class="fields">
+      <input class="inp name" id="dName" maxlength="70" autocomplete="off" placeholder="Nombre del producto" aria-label="Nombre del producto" value="${esc(d.nombre)}">
+      <input class="inp" id="dBrand" maxlength="40" autocomplete="off" placeholder="Marca (opcional)" aria-label="Marca" value="${esc(d.marca)}"></div></div>
+    ${d.code?`<p class="d-code" id="dCodeLine">Código ${esc(d.code)}${d.cant?' · '+esc(d.cant):''}</p>`:''}`;
+  }
+  h+=`<div class="field"><span>Unidades</span><div class="d-stepper"><button type="button" data-act="d:qty" data-d="-1" aria-label="Una menos" ${SH.qty<=1?'disabled':''}>${ic('minus')}</button><output id="dQty">${SH.qty}</output><button type="button" data-act="d:qty" data-d="1" aria-label="Una más">${ic('plus')}</button></div></div>
+  <div class="field"><span>Fecha de caducidad</span><div id="dDpBox">${dDpHTML(SH.dp)}</div></div>
+  <p class="err" id="shErr"></p>
+  <button type="button" class="btn mint full big" id="dAddBtn" data-act="d:addSave">${dAddLabel()}</button>`;
+  $('#sheet').innerHTML=h;
+}
+const dAddLabel=()=>`${ic('pkgin')} Meter ${SH.qty} ${plural(SH.qty,'unidad','unidades')}`;
+function dReadDraft(){if(!SH||!SH.draft)return;const n=$('#dName'),b=$('#dBrand');if(n)SH.draft.nombre=n.value;if(b)SH.draft.marca=b.value}
+function dAddSave(){
+  const err=$('#shErr');let p=SH.pid?dById(SH.pid):null;
+  if(!p){dReadDraft();if(!SH.draft.nombre.trim()){err.textContent='Escribe el nombre del producto.';$('#dName').focus();return}}
+  const v=dDpValidate();if(v.err){err.textContent=v.err;$('#dDpBox').scrollIntoView({block:'center',behavior:'smooth'});return}
+  if(!p){const d=SH.draft,same=d.code?dByCode(d.code):null;
+    if(same)p=same;else{p={id:newId(),code:d.code||null,nombre:cap(d.nombre.trim()),marca:d.marca.trim(),cant:d.cant||'',foto:d.foto||'',fotoUrl:d.fotoUrl||'',min:1,units:[],creada:Date.now()};DS.products.push(p)}}
+  for(let i=0;i<SH.qty;i++)p.units.push({id:newId(),cad:v.cad,dia:v.dia,t:Date.now()+i});
+  p.t=Date.now();const c=dSyncCompra(p);dSave();
+  const q=SH.qty,prod=SH.fromProd,scan=SH.scan;
+  dHide();render();
+  const msg=`Metido${q>1?'s':''} ${q} · ${p.nombre}`+(c==='removed'?'. Quitado de la compra':'');
+  if(prod)dOpenProduct(p.id);
+  if(scan)toastAction(msg,'Escanear otro','d:scanIn');else toast(msg);
+}
+
+/* ---------- ficha de producto ---------- */
+function dOpenProduct(id){if(!dById(id))return;SH={kind:'d-prod',id,confirm:false,edit:null,dp:null};dDrawProduct();openSheet()}
+function dDrawProduct(){
+  if(!SH||SH.kind!=='d-prod')return;const p=dById(SH.id);if(!p){dHide();render();return}
+  const G=dGroups(p),n=p.units.length,u=dNearest(p);
+  let h=dHead('Producto');
+  h+=`<div class="d-hero"><span id="dProdPh">${dPhBtn(p,'prod')}</span><div class="fields">
+    <input class="inp name" data-dpf="nombre" maxlength="70" autocomplete="off" value="${esc(p.nombre)}" aria-label="Nombre">
+    <input class="inp" data-dpf="marca" maxlength="40" autocomplete="off" placeholder="Marca (opcional)" value="${esc(p.marca||'')}" aria-label="Marca"></div></div>
+  <p class="d-saved" id="dSaved"></p>
+  <div class="d-pstat"><div><span class="lb">En la despensa</span><span class="big">${n}<small>${plural(n,'unidad','unidades')}</small></span></div>
+    ${n?`<div class="r"><span class="lb">La más próxima</span>${u&&u.cad?dTag(u.cad,u.dia)+`<small>${esc(dRel(u.cad))}</small>`:'<span class="d-tag none">Sin fecha</span>'}</div>`:'<div class="r"><span class="d-tag none">Agotado</span></div>'}</div>
+  <div class="d-pacts"><button type="button" class="btn white" data-act="d:takeOne" ${n?'':'disabled'}>${ic('pkgout')} Sacar una</button><button type="button" class="btn mint" data-act="d:addMore">${ic('pkgin')} Meter más</button></div>`;
+  if(G.length){
+    h+=`<div class="sec-h" style="margin-top:18px"><h2>Fechas</h2><span class="aside">Toca una para cambiarla</span></div><div class="d-glist">`;
+    for(const g of G){const k=dGKey(g),s=g.cad?dState(g.cad):'none',open=SH.edit===k,y=g.cad?g.cad.slice(0,4):'',m=g.cad?+g.cad.slice(5,7):0;
+      h+=`<div class="d-grow ${s}"><button type="button" class="d-gdate" data-act="d:gEdit" data-k="${esc(k)}" aria-expanded="${open}">
+        <span class="d-dtile ${s}">${g.cad?(g.dia?`<b>${+g.cad.slice(8,10)}</b><span>${MES3[m-1]} ${y.slice(2)}</span>`:`<b>${MES3[m-1]}</b><span>${y}</span>`):'<b>—</b><span>sin</span>'}</span>
+        <span class="t"><b>${esc(dFmtLong(g.cad,g.dia))}</b><small>${g.cad?esc(dRel(g.cad)):'Toca para ponerle fecha'}</small></span></button>
+        <div class="d-stepper sm"><button type="button" data-act="d:gMinus" data-k="${esc(k)}" aria-label="Sacar una de esta fecha">${ic('minus')}</button><output>${g.units.length}</output><button type="button" data-act="d:gPlus" data-k="${esc(k)}" aria-label="Meter una más con esta fecha">${ic('plus')}</button></div></div>`;
+      if(open)h+=`<div class="d-gedit"><div id="dDpBox">${dDpHTML(SH.dp)}</div><p class="err" id="shErr" style="margin:0"></p>
+        <div class="d-pacts" style="margin:0"><button type="button" class="btn" data-act="d:gEdit" data-k="${esc(k)}">Cancelar</button><button type="button" class="btn mint" data-act="d:gSave" data-k="${esc(k)}">${g.units.length>1?`Cambiar las ${g.units.length}`:'Cambiar fecha'}</button></div></div>`;
+    }
+    h+='</div>';
+  }
+  h+=`<div class="field"><span>Lista de la compra</span><div class="d-minrow"><div class="d-stepper sm"><button type="button" data-act="d:minD" data-d="-1" aria-label="Menos" ${p.min<=0?'disabled':''}>${ic('minus')}</button><output>${p.min}</output><button type="button" data-act="d:minD" data-d="1" aria-label="Más">${ic('plus')}</button></div>
+    <p class="d-hint">${p.min===1?'Cuando se acabe, se apunta solo en la compra.':p.min>1?`Cuando te queden menos de ${p.min}, se apunta solo en la compra.`:'No se apunta en la compra aunque se acabe.'}</p></div></div>
+  ${p.code?`<p class="d-code">Código ${esc(p.code)}${p.cant?' · '+esc(p.cant):''}</p>`:''}
+  <div class="tacts" style="margin-top:16px"><button type="button" class="btn danger mini ${SH.confirm?'armed':''}" data-act="d:pDel">${SH.confirm?'Toca otra vez para borrarlo':ic('trash')+' Borrar producto'}</button></div>
+  ${p.code?'<p class="d-hint" style="margin-top:8px">Si lo borras, la app olvidará este código de barras.</p>':''}`;
+  const sh=$('#sheet'),top=sh.scrollTop;sh.innerHTML=h;sh.scrollTop=top;
+}
+const dGroupOf=(p,k)=>dGroups(p).find(g=>dGKey(g)===k);
+let dPfT=null;
+function dOnProdField(el){const p=SH&&SH.kind==='d-prod'&&dById(SH.id);if(!p)return;const f=el.dataset.dpf,v=el.value.trim();
+  if(f==='nombre'){if(!v)return;p.nombre=cap(v)}else p.marca=v;
+  const s=$('#dSaved');if(s)s.textContent='Guardando…';
+  clearTimeout(dPfT);dPfT=setTimeout(()=>{dSyncCompra(p);dSave();const s2=$('#dSaved');if(s2)s2.textContent='Guardado'},600)}
+
+/* ---------- escribir el código a mano ---------- */
+function dOpenCode(mode){if(LY.kind==='d-scan')layerClose();SH={kind:'d-code',mode};
+  $('#sheet').innerHTML=dHead(mode==='out'?'Sacar escribiendo el código':'Escribir el código')+`<label class="field"><span>Números del código de barras</span><input class="inp d-codein" id="dCodeIn" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="14" placeholder="8 400000 000000"></label>
+  <p class="d-hint" style="margin-top:8px">Son los números que hay justo debajo de las barras. Normalmente, 13 cifras.</p><p class="err" id="shErr"></p>
+  <button type="button" class="btn mint full big" data-act="d:codeGo">${ic('search')} ${mode==='out'?'Sacar una unidad':'Buscar'}</button>`;
+  openSheet();setTimeout(()=>{const i=$('#dCodeIn');if(i)i.focus()},80)}
+function dCodeGo(){const v=($('#dCodeIn').value||'').replace(/\D/g,''),err=$('#shErr');
+  if(!/^(\d{8}|\d{12,14})$/.test(v)){err.textContent='Revisa el número: suelen ser 13 cifras.';return}
+  if(v.length!==12&&v.length!==14&&!dEanOk(v)){err.textContent='Ese número no cuadra. Revisa que esté bien copiado.';return}
+  const mode=SH.mode;dHide();dGotCode(dNorm(v),mode)}
+
+/* ---------- copia ---------- */
+const dExport=()=>({products:DS.products,compra:DS.compra,prefs:DS.prefs});
+function dImport(d){dApply(d);dFlush()}
+function dMerge(d){const before=DS.products.length,ids=new Set(DS.products.map(p=>p.id)),codes=new Set(DS.products.map(p=>p.code).filter(Boolean));
+  for(const p of Array.isArray(d.products)?d.products:[]){if(!p||typeof p.nombre!=='string'||ids.has(p.id)||(p.code&&codes.has(p.code)))continue;DS.products.push(dClean(p))}
+  const cids=new Set(DS.compra.map(c=>c.id));for(const c of Array.isArray(d.compra)?d.compra:[])if(c&&typeof c.nombre==='string'&&!cids.has(c.id))DS.compra.push(c);
+  dFlush();return DS.products.length-before}
+
+/* ---------- eventos ---------- */
+SECT.d={click(a,b){const id=b.dataset.id;
+  if(SH&&SH.kind==='d-prod'&&SH.confirm&&a!=='pDel'){SH.confirm=false;const x=$('[data-act="d:pDel"]');if(x){x.classList.remove('armed');x.innerHTML=ic('trash')+' Borrar producto'}}
+  if(a.startsWith('inCode:')){dOpenAdd({code:a.slice(7)});$('#toast').hidden=true;return}
+  switch(a){
+    case 'tab':DS.tab=b.dataset.tab;render();window.scrollTo(0,0);break;
+    case 'scan':dOpenPick();break;
+    case 'scanIn':$('#toast').hidden=true;dScanOpen('in');break;
+    case 'scanOut':$('#toast').hidden=true;dScanOpen('out');break;
+    case 'scanClose':layerClose();break;
+    case 'torch':dTorch();break;
+    case 'typeCode':dOpenCode(b.dataset.mode||'in');break;
+    case 'manualNew':if(LY.kind)layerClose();dOpenAdd({});setTimeout(()=>{const n=$('#dName');if(n)n.focus()},120);break;
+    case 'codeGo':dCodeGo();break;
+    case 'close':dCloseSheet();break;
+    case 'sort':DS.prefs.sort=DS.prefs.sort==='az'?'cad':'az';dSave();render();break;
+    case 'toggleOut':DS.showOut=!DS.showOut;render();break;
+    case 'pOpen':dOpenProduct(id);break;
+    case 'qty':SH.qty=Math.max(1,Math.min(99,SH.qty+(+b.dataset.d)));$('#dQty').textContent=SH.qty;$('#dAddBtn').innerHTML=dAddLabel();document.querySelector('[data-act="d:qty"][data-d="-1"]').disabled=SH.qty<=1;break;
+    case 'dpY':SH.dp.y=+b.dataset.v;SH.dp.none=false;dDpRedraw();break;
+    case 'dpM':{const m=+b.dataset.v,now=new Date();SH.dp.m=m;SH.dp.none=false;if(!SH.dp.y)SH.dp.y=m>=now.getMonth()+1?now.getFullYear():now.getFullYear()+1;dDpRedraw();dDpScroll();break}
+    case 'dpNone':SH.dp.none=!SH.dp.none;dDpRedraw();break;
+    case 'addSave':dAddSave();break;
+    case 'addMore':{const p=dById(SH.id);if(p)dOpenAdd({pid:p.id,fromProd:true});break}
+    case 'takeOne':dTakeOne(SH.id);dDrawProduct();render();break;
+    case 'undoTake':dUndoTake();break;
+    case 'gEdit':{const p=dById(SH.id),k=b.dataset.k;if(!p)break;if(SH.edit===k){SH.edit=null;SH.dp=null}else{const g=dGroupOf(p,k);SH.edit=k;SH.dp=dNewDp(g&&g.cad,g&&g.dia)}dDrawProduct();if(SH.edit){dDpScroll();const e2=$('.d-gedit');if(e2)e2.scrollIntoView({block:'nearest',behavior:'smooth'})}break}
+    case 'gSave':{const p=dById(SH.id),g=p&&dGroupOf(p,b.dataset.k);if(!g)break;const v=dDpValidate();if(v.err){$('#shErr').textContent=v.err;break}
+      for(const u of g.units){u.cad=v.cad;u.dia=v.dia}dSave();SH.edit=null;SH.dp=null;dDrawProduct();render();toast('Fecha cambiada');break}
+    case 'gMinus':{const p=dById(SH.id),g=p&&dGroupOf(p,b.dataset.k);if(!g)break;const u=g.units[0];p.units.splice(p.units.indexOf(u),1);dLastTake={pid:p.id,u};const c=dSyncCompra(p);dSave();
+      if(SH.edit===b.dataset.k&&!dGroupOf(p,b.dataset.k)){SH.edit=null;SH.dp=null}dDrawProduct();render();toastAction(`Sacada 1 · ${p.nombre}`+(c==='added'?'. Apuntado en la compra':''),'Deshacer','d:undoTake');break}
+    case 'gPlus':{const p=dById(SH.id),g=p&&dGroupOf(p,b.dataset.k);if(!g)break;p.units.push({id:newId(),cad:g.cad,dia:g.dia,t:Date.now()});dSyncCompra(p);dSave();dDrawProduct();render();break}
+    case 'minD':{const p=dById(SH.id);if(!p)break;p.min=Math.max(0,Math.min(20,(p.min||0)+(+b.dataset.d)));const c=dSyncCompra(p);dSave();dDrawProduct();render();if(c==='added')toast('Apuntado en la compra');else if(c==='removed')toast('Quitado de la compra');break}
+    case 'pDel':{if(!SH.confirm){SH.confirm=true;b.classList.add('armed');b.textContent='Toca otra vez para borrarlo';break}
+      const p=dById(SH.id);DS.products=DS.products.filter(x=>x.id!==SH.id);DS.compra=DS.compra.filter(c=>c.pid!==SH.id||!c.auto);dSave();dHide();render();toast(p?`${p.nombre} borrado`:'Borrado');break}
+    case 'cAdd':dCAdd();break;
+    case 'cTick':{const c=DS.compra.find(x=>x.id===id);if(!c)break;c.hecha=c.hecha?null:Date.now();dSave();render();break}
+    case 'cDel':DS.compra=DS.compra.filter(x=>x.id!==id);dSave();render();break;
+    case 'cClear':DS.compra=DS.compra.filter(x=>!x.hecha);dSave();render();toast('Lista actualizada');break;
+  }}};
+document.addEventListener('input',e=>{const t=e.target;
+  if(t.id==='dDpDay'&&SH&&SH.dp){const v=t.value.replace(/\D/g,'').slice(0,2);if(v!==t.value)t.value=v;SH.dp.d=v===''||+v===0?'':String(+v);if(v)SH.dp.none=false;const s=$('#dDpSum');if(s)s.innerHTML=dDpSum(SH.dp);
+    const nb=document.querySelector('[data-act="d:dpNone"]');if(nb)nb.setAttribute('aria-pressed',String(SH.dp.none));return}
+  if(t.dataset&&t.dataset.dpf){dOnProdField(t);return}
+  if(t.id==='dName'||t.id==='dBrand'){const e2=$('#shErr');if(e2)e2.textContent=''}
+});
+document.addEventListener('focusout',e=>{const t=e.target;if(t.dataset&&t.dataset.dpf==='nombre'&&!t.value.trim()&&SH&&SH.kind==='d-prod'){const p=dById(SH.id);if(p)t.value=p.nombre}});
+document.addEventListener('change',e=>{const t=e.target;if(!t.dataset||!t.dataset.dcam)return;const f=t.files&&t.files[0],purpose=t.dataset.dcam;t.value='';if(f){$('#toast').hidden=true;dOnPhoto(f,purpose)}});
+document.addEventListener('keydown',e=>{if(e.key!=='Enter')return;const t=e.target;
+  if(t.id==='dNew'){e.preventDefault();dCAdd();return}
+  if(t.id==='dCodeIn'){e.preventDefault();dCodeGo();return}
+  if(t.id==='dName'||t.id==='dBrand'||t.id==='dDpDay'||(t.dataset&&t.dataset.dpf)){e.preventDefault();t.blur()}});
+
+
 /* ================= COPIA DE SEGURIDAD ================= */
 function blobToDataURL(b){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(b)})}
 function openBackup(){
   SH={kind:'backup'};
   const imp=S.pendingImport;
   $('#sheet').innerHTML=`<div class="grab"></div><div class="sh"><h2>Copia de seguridad</h2><button type="button" class="round" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
-  <p class="empty" style="padding:8px 0">Guarda en un archivo todos tus datos (gastos, presupuestos conjuntos, gastos anuales, tareas, regalos y medidas, con sus fotos) o recupéralos desde una copia.</p>
+  <p class="empty" style="padding:8px 0">Guarda en un archivo todos tus datos (gastos, presupuestos conjuntos, gastos anuales, tareas, regalos, medidas, billetes, documentos y despensa, con sus fotos) o recupéralos desde una copia.</p>
   <div style="display:flex;flex-direction:column;gap:10px">
     <button class="btn white full" data-act="exportData" ${dl?'':'disabled'}>${ic('pdf')} Exportar copia</button>
     <label class="btn full photo-btn">${ic('undo')} Importar una copia<input type="file" accept="application/json,.json" data-import="1"></label>
   </div>
-  ${imp?`<div class="panel" style="margin-top:14px;padding:14px;border-color:var(--neg)"><p style="margin:0 0 10px;font-weight:600">La copia es del ${esc(new Date(imp.exportado||Date.now()).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'}))}: ${Object.keys(imp.months||{}).length} meses, ${(imp.tareas||[]).length} tareas, ${(imp.regalos||[]).length} personas y ${(imp.medidas||[]).length} medidas.</p>
+  <p class="note" style="text-align:left;margin-top:12px">Las copias de las apps de prueba de Billetes, Documentos y Despensa también se cargan aquí: se añaden a lo que ya tienes.</p>
+  ${imp?`<div class="panel" style="margin-top:14px;padding:14px;border-color:var(--neg)"><p style="margin:0 0 10px;font-weight:600">La copia es del ${esc(new Date(imp.exportado||Date.now()).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'}))}: ${esc(impSummary(imp))}.</p>
     <p class="note" style="text-align:left;margin:0 0 10px">Sustituye lo que tienes ahora en ${S.mode==='db'?'tu cuenta':'este móvil'}.</p>
     <div style="display:flex;gap:8px"><button class="btn danger" style="flex:1" data-act="importOk">Sustituir mis datos</button><button class="btn" style="flex:1" data-act="importNo">Cancelar</button></div></div>`:''}
   <p class="err" id="shErr"></p>`;
@@ -1283,6 +3195,8 @@ function openBackup(){
 async function exportData(){
   if(!dl){toast('Las descargas no están disponibles aquí.');return}
   const data=JSON.parse(JSON.stringify({app:'mi-dia-a-dia',version:1,exportado:Date.now(),months:S.months,cats:S.cats,anuales:S.anuales,conjuntos:D.cj,tareas:TK.list,regalos:GK.people.filter(p=>!p.yo||p.regalos.length),medidas:HK.items}));
+  toast('Preparando la copia…');
+  data.version=2;data.billetes=BI.tickets.map(t=>({...t}));data.documentos=await oExport();data.despensa=JSON.parse(JSON.stringify(dExport()));
   const withPhoto=[];for(const p of data.regalos)for(const g of p.regalos||[])if(g.foto)withPhoto.push(g);for(const it of data.medidas)if(it.foto)withPhoto.push(it);
   let fail=0;if(withPhoto.length)toast('Preparando '+withPhoto.length+' foto'+(withPhoto.length===1?'':'s')+'…');
   for(const o of withPhoto){try{const r=await fetch('/_blob/'+o.foto);if(!r.ok)throw 0;o.fotoData=await blobToDataURL(await r.blob());delete o.foto}catch(e){fail++;delete o.foto}}
@@ -1290,14 +3204,29 @@ async function exportData(){
   catch(e){const c=e&&e.code;if(c!=='declined')toast('No se ha podido guardar la copia'+(c?' ('+c+')':'')+'.')}
 }
 function readImport(input){const f=input.files&&input.files[0];input.value='';if(!f)return;
-  const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||d.app!=='mi-dia-a-dia')throw 0;S.pendingImport=d;openBackup()}catch(e){toast('Ese archivo no es una copia de Mi día a día.')}};r.readAsText(f)}
-function applyImport(){
+  const r=new FileReader();r.onload=()=>{let d=null;try{d=JSON.parse(r.result)}catch(e){}importAny(d)};r.readAsText(f)}
+function impSummary(d){const n=(k,a,b)=>`${k} ${k===1?a:b}`;const L=[n(Object.keys(d.months||{}).length,'mes','meses'),n((d.tareas||[]).length,'tarea','tareas'),n((d.regalos||[]).length,'persona','personas'),n((d.medidas||[]).length,'medida','medidas')];
+  if(Array.isArray(d.billetes))L.push(n(d.billetes.length,'billete','billetes'));if(Array.isArray(d.documentos))L.push(n(d.documentos.length,'documento','documentos'));
+  if(d.despensa&&Array.isArray(d.despensa.products))L.push(n(d.despensa.products.length,'producto','productos')+' de la despensa');
+  return L.slice(0,-1).join(', ')+' y '+L[L.length-1]}
+async function importAny(d){
+  if(d&&d.app==='mi-dia-a-dia'){S.pendingImport=d;openBackup();return}
+  if(d&&(d.app==='mis-billetes'||(!d.app&&Array.isArray(d.billetes)))){toast('Cargando los billetes…');const n=await bImport(d.billetes,false);closeSheet();render();toast(n?`${n} ${plural(n,'billete añadido','billetes añadidos')}`:'Esa copia no tiene billetes.');return}
+  if(d&&(d.app==='mis-documentos'||(!d.app&&Array.isArray(d.documentos)))){toast('Cargando los documentos…');const n=await oImport(d.documentos,false);closeSheet();render();toast(n?`${n} ${plural(n,'documento añadido','documentos añadidos')}`:'Esa copia no tiene documentos.');return}
+  if(d&&d.app==='despensa'){const n=dMerge(d);closeSheet();render();toast(n?`${n} ${plural(n,'producto añadido','productos añadidos')} a la despensa`:'No había productos nuevos en esa copia.');return}
+  toast('Ese archivo no es una copia de Mi día a día.');
+}
+async function applyImport(){
   const d=S.pendingImport;if(!d)return;S.pendingImport=null;
   S.months=d.months||{};if(Array.isArray(d.cats)&&d.cats.length)S.cats=fixCats(d.cats);S.anuales=Array.isArray(d.anuales)?d.anuales:[];
   if(d.conjuntos&&typeof d.conjuntos==='object'){const c=d.conjuntos;D.cj={months:c.months||{},cats:Array.isArray(c.cats)&&c.cats.length?fixCats(c.cats):CATS_DEFAULT.map(x=>({...x})),anuales:Array.isArray(c.anuales)?c.anuales:[]}}
   TK.list=Array.isArray(d.tareas)?d.tareas:[];GK.people=Array.isArray(d.regalos)?d.regalos:[];ensureYo();HK.items=Array.isArray(d.medidas)?d.medidas:[];
   if(S.mode==='db'){for(const ym in S.months)saveMonth(ym);saveCats();saveAnuales();if(d.conjuntos){S.ctx='cj';for(const ym in S.months)saveMonth(ym);saveCats();saveAnuales();S.ctx='main'}for(const t of TK.list)saveTask(t);for(const p of GK.people)if(!p.yo||p.regalos.length)savePerson(p);for(const it of HK.items)saveHouse(it)}
   else{saveLocal();saveTasksLocal();saveGiftsLocal();saveHouseLocal()}
+  if(Array.isArray(d.billetes)||Array.isArray(d.documentos)||d.despensa)toast('Recuperando…');
+  if(Array.isArray(d.billetes))await bImport(d.billetes,true);
+  if(Array.isArray(d.documentos))await oImport(d.documentos,true);
+  if(d.despensa&&typeof d.despensa==='object')dImport(d.despensa);
   closeSheet();render();toast('Datos recuperados');
 }
 document.addEventListener('change',e=>{if(e.target.dataset&&e.target.dataset.import)readImport(e.target)});
@@ -1308,6 +3237,7 @@ let tT;function toast(msg){if(!msg)return;const t=$('#toast');clearTimeout(typeo
 /* ---------- eventos ---------- */
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act,id=b.dataset.id;
+  const ci=a.indexOf(':');if(ci>0){const m=SECT[a.slice(0,ci)];if(m)m.click(a.slice(ci+1),b,e);return}
   if(a!=='catDel'&&S.confirm){S.confirm=null;if(a!=='tab')render()}
   switch(a){
     case 'tab':S.tab=b.dataset.tab;if(S.tab==='historial')S.year=+S.ym.slice(0,4);render();window.scrollTo(0,0);break;
@@ -1383,7 +3313,7 @@ document.addEventListener('click',e=>{
 document.addEventListener('submit',e=>{const f=e.target.dataset.form;if(!f)return;e.preventDefault();if(f==='sheet')submitSheet();else if(f==='cat')submitCat()});
 document.addEventListener('change',e=>{if(e.target.dataset&&e.target.dataset.cat)renameCat(e.target.dataset.cat,e.target.value)});
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&!$('#sheet').hidden){closeSheet();return}
+  if(e.key==='Escape'&&(LY.kind||!$('#sheet').hidden)){appBack();return}
   if(e.key==='Enter'&&e.target.matches('tr[data-act]')){e.target.click();return}
   if(e.key==='Enter'&&e.target.matches('#tNew')){e.preventDefault();tAdd();return}
   if(e.key==='Enter'&&e.target.matches('#gNewP')){e.preventDefault();gAddP();return}
@@ -1405,6 +3335,7 @@ document.addEventListener('keydown',e=>{
 async function init(){
   render();
   await kvInit();
+  await fdbInit();await Promise.all([bLoad(),oLoad()]);dLoad();try{bInitLists()}catch(e){}backInit();
   const C=window.claude;let user=null,db=null;
   if(!(C&&C.use)){
     dl={save:async({filename,data})=>{const blob=data instanceof Blob?data:new Blob([data],{type:filename.endsWith('.json')?'application/json':'application/octet-stream'});
