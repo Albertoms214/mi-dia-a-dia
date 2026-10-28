@@ -282,6 +282,7 @@ select.in{appearance:none;background-image:linear-gradient(45deg,transparent 50%
 .lock-foot .mono{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
 .busy .pad{opacity:.4;pointer-events:none}
 
+#lockov{position:fixed;inset:0;z-index:60;background:var(--ink);overflow:auto;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 #toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 96px);transform:translate(-50%,12px);opacity:0;background:var(--paper);color:var(--paper-ink);padding:11px 16px;border-radius:12px;font-weight:620;font-size:14px;z-index:70;transition:opacity .2s,transform .2s;width:max-content;max-width:calc(100% - 32px);pointer-events:none;text-align:center;line-height:1.4}
 #toast.on{opacity:1;transform:translate(-50%,0)}
 
@@ -298,6 +299,7 @@ select.in{appearance:none;background-image:linear-gradient(45deg,transparent 50%
 <div id="app"></div>
 <div id="sheet-root"></div>
 <div id="viewer" hidden></div>
+<div id="lockov" hidden></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script type="text/plain" id="pdfjs-worker">/**
@@ -403,7 +405,7 @@ const SEC = {
 /* ---------- estado ---------- */
 const S = {
   mk: null, mkRaw: null, recs: new Map(), urls: new Map(),
-  unlocked: false, q: '', draft: null, settings: { autolock: 0 },
+  unlocked: false, hasVault: false, q: '', draft: null, settings: { autolock: 0 },
   hiddenAt: 0, picking: 0, lk: null, bio: null, sheet: null, pdf: null,
 };
 const R = { stack: [{ v: 'home', p: {} }] };
@@ -452,11 +454,16 @@ async function tryVault(vault, pin) {
 }
 
 /* ---------- registros ---------- */
+const encRows = new Map(); // comparecencias cifradas: id -> fila
 async function save(rec) {
   rec.u = Date.now(); if (!rec.c) rec.c = rec.u;
+  if (rec.t === 'comp') {
+    if (!S.mk) throw new Error('Las comparecencias están bloqueadas');
+    const { iv, ct } = await aesEnc(S.mk, te.encode(JSON.stringify(rec)));
+    const row = { id: rec.id, k: 'e', iv, ct }; encRows.set(rec.id, row);
+    await tx('recs', 'readwrite', s => s.put(row));
+  } else await tx('recs', 'readwrite', s => s.put({ id: rec.id, k: 'p', o: rec }));
   S.recs.set(rec.id, rec);
-  const { iv, ct } = await aesEnc(S.mk, te.encode(JSON.stringify(rec)));
-  await tx('recs', 'readwrite', s => s.put({ id: rec.id, iv, ct }));
   return rec;
 }
 function filesOf(r) {
@@ -467,26 +474,35 @@ function filesOf(r) {
 async function delFile(id) { if (!id) return; const u = S.urls.get(id); if (u) { URL.revokeObjectURL(u); S.urls.delete(id); } await tx('files', 'readwrite', s => s.delete(id)); }
 async function remove(id) {
   const r = S.recs.get(id); if (!r) return;
-  S.recs.delete(id);
+  S.recs.delete(id); encRows.delete(id);
   await tx('recs', 'readwrite', s => s.delete(id));
   for (const f of filesOf(r)) await delFile(f);
 }
-async function loadAll() {
-  const rows = await tx('recs', 'readonly', s => s.getAll());
-  S.recs.clear();
-  for (const r of rows) {
+async function decryptComps() {
+  if (!S.mk) return;
+  for (const r of encRows.values()) {
+    if (S.recs.has(r.id)) continue;
     try { const o = JSON.parse(td.decode(await aesDec(S.mk, r.iv, r.ct))); S.recs.set(o.id, o); }
     catch (e) { console.warn('No se pudo descifrar', r.id); }
   }
 }
-async function putFile(buf, name, mime) {
-  const id = uid(); const { iv, ct } = await aesEnc(S.mk, buf);
-  await tx('files', 'readwrite', s => s.put({ id, iv, ct }));
+async function loadAll() {
+  const rows = await tx('recs', 'readonly', s => s.getAll());
+  S.recs.clear(); encRows.clear();
+  for (const r of rows) { if (r.k === 'p') S.recs.set(r.id, r.o); else if (r.k === 'e') encRows.set(r.id, r); }
+  await decryptComps();
+}
+async function putFile(buf, name, mime, enc) {
+  const id = uid();
+  if (enc) { const { iv, ct } = await aesEnc(S.mk, buf); await tx('files', 'readwrite', s => s.put({ id, k: 'e', iv, ct })); }
+  else await tx('files', 'readwrite', s => s.put({ id, k: 'p', buf }));
   return { id, name, mime, size: buf.byteLength };
 }
 async function getFileBuf(id) {
   const r = await tx('files', 'readonly', s => s.get(id));
   if (!r) throw new Error('No se encuentra el archivo');
+  if (r.k === 'p') return r.buf;
+  if (!S.mk) throw new Error('Bloqueado');
   return aesDec(S.mk, r.iv, r.ct);
 }
 async function fileURL(f) {
@@ -501,12 +517,12 @@ async function downscale(file, max = 2400) {
   c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); bmp.close && bmp.close();
   return new Promise(r => c.toBlob(r, 'image/jpeg', 0.87));
 }
-async function ingest(file) {
+async function ingest(file, enc) {
   let buf = await file.arrayBuffer(); let mime = file.type || (/\.pdf$/i.test(file.name) ? 'application/pdf' : 'application/octet-stream'); let name = file.name || 'archivo';
   if (/^image\/(jpeg|png|webp|heic|heif)/.test(mime)) {
     try { const out = await downscale(file); if (out && out.size < buf.byteLength) { buf = await out.arrayBuffer(); mime = 'image/jpeg'; name = name.replace(/\.\w+$/, '') + '.jpg'; } } catch { }
   }
-  return putFile(buf, name, mime);
+  return putFile(buf, name, mime, enc);
 }
 
 /* ---------- utilidades de vista ---------- */
@@ -564,6 +580,7 @@ function render(mode = 'refresh') {
   if (!S.unlocked) return;
   const top = R.stack[R.stack.length - 1];
   const y = mode === 'back' ? (top.y || 0) : mode === 'refresh' ? window.scrollY : 0;
+  if (['comps', 'comp', 'compForm'].includes(top.v) && !S.mk) { R.stack.pop(); return render('back'); }
   const view = V[top.v] || V.home;
   let out;
   try { out = view(top.p); } catch (e) { console.error(e); out = { body: `<p class="empty">No se ha podido abrir esta pantalla.</p>` }; }
@@ -640,13 +657,14 @@ function snippet(r, terms) {
 function searchResults(q) {
   const terms = norm(q.trim()).split(/\s+/).filter(Boolean);
   const hits = [...S.recs.values()].filter(r => r.t !== 'carpeta' && terms.every(t => haystack(r).includes(t)));
-  if (!hits.length) return `<div class="empty" style="margin-top:18px"><b>Sin resultados para «${esc(q.trim())}»</b>Busca por nombre, artículo, texto de una comparecencia o paso de una guía.</div>`;
+  const lockedNote = !S.mk && encRows.size ? `<p class="hint" style="margin-top:18px">Las comparecencias no se buscan mientras estén bloqueadas.</p>` : '';
+  if (!hits.length) return `<div class="empty" style="margin-top:18px"><b>Sin resultados para «${esc(q.trim())}»</b>Busca por nombre, artículo, texto o paso de una guía.</div>${lockedNote}`;
   const order = ['delito', 'pieza', 'comp', 'tramite', 'guia', 'recurso'];
   const label = { delito: 'Delitos e infracciones', pieza: 'Dentro de las fichas', comp: 'Comparecencias', tramite: 'Diligencias', guia: 'Guías', recurso: 'Recursos' };
   return order.map(t => {
     const hs = hits.filter(h => h.t === t).sort(byName); if (!hs.length) return '';
     return `<h2 class="h2">${label[t]} · ${hs.length}</h2><div class="list">${hs.map(r => rowAny(r, { hl: s => hl(s, terms), extra: snippet(r, terms) })).join('')}</div>`;
-  }).join('');
+  }).join('') + lockedNote;
 }
 
 /* =========================================================
@@ -669,7 +687,7 @@ V.home = () => {
           <span class="tile-top">${ico('s_delito', 'i-lg')}<span class="tile-n">${n('delito')}</span></span>
           <span><span class="tile-name">Delitos e infracciones</span><span class="tile-sub">${delitos.length ? delitos.slice(0, 4).map(d => esc(d.nombre)).join(' · ') : 'Crea la primera ficha'}</span></span>
         </button>
-        ${tile('comps', 's_comp', 'Comparecencias', n('comp'))}
+        <button class="tile" data-a="openComps"><span class="tile-top">${ico('s_comp', 'i-lg')}${S.mk ? `<span class="tile-n">${n('comp')}</span>` : ico('lock', 'i-sm')}</span><span class="tile-name">Comparecencias</span></button>
         ${tile('recursos', 's_rec', 'Recursos', n('recurso'))}
         ${tile('guias', 's_guia', 'Guías', n('guia'))}
         ${tile('tramites', 's_dil', 'Diligencias', n('tramite'))}
@@ -681,8 +699,8 @@ V.home = () => {
     home: true,
     body: `
       <header class="home-h">
-        <div><h1 class="brand">Trabajo</h1><p class="sub">${ico('lock', 'i-xs')}Cifrado · solo en este móvil</p></div>
-        <div class="home-a">${EMBED ? '' : `<button class="ib" data-a="toMDD" aria-label="Volver a Mi día a día">${ico('back')}</button>`}<button class="ib" data-a="lockNow" aria-label="Bloquear ahora">${ico('lock')}</button><button class="ib" data-go="ajustes" aria-label="Ajustes">${ico('sliders')}</button></div>
+        <div><h1 class="brand">Trabajo</h1><p class="sub">${ico('lock', 'i-xs')}Solo en este móvil</p></div>
+        <div class="home-a">${EMBED ? '' : `<button class="ib" data-a="toMDD" aria-label="Volver a Mi día a día">${ico('back')}</button>`}${S.mk ? `<button class="ib" data-a="lockNow" aria-label="Bloquear las comparecencias">${ico('lock')}</button>` : ''}<button class="ib" data-go="ajustes" aria-label="Ajustes">${ico('sliders')}</button></div>
       </header>
       <label class="search">${ico('search')}<input id="q" type="search" placeholder="Buscar en todo" value="${esc(S.q)}" autocomplete="off" enterkeyhint="search"></label>
       <div id="home-main">${S.q.trim() ? searchResults(S.q) : main()}</div>`,
@@ -732,6 +750,8 @@ V.delito = p => {
       return `<button class="row" data-open="${x.id}">${rowIcon(x)}<span class="row-m"><span class="row-t">${esc(x.titulo)}</span>${sub ? `<span class="row-s">${esc(sub)}</span>` : ''}${x.texto ? `<span class="row-x">${esc(x.texto.slice(0, 160))}</span>` : ''}</span>${ico('chev', 'i-dim')}</button>`;
     }).join('')}</div>` : `<div class="empty">${CATS[tab].empty}</div>`) +
       `<button class="add" data-a="addPieza" data-cat="${tab}" data-id="${d.id}">${ico('plus', 'i-sm')} ${CATS[tab].add}</button>`;
+  } else if (tab === 'comp' && !S.mk) {
+    tb = `<div class="empty"><b>Comparecencias protegidas</b>Se muestran al desbloquearlas con tu código o tu huella.</div><button class="add" data-a="unlockComps">${ico('lock', 'i-sm')} Desbloquear</button>`;
   } else if (tab === 'comp') {
     tb = (comps.length ? `<div class="list">${comps.map(c => rowAny(c)).join('')}</div>` : `<div class="empty">Tus comparecencias sobre este delito. Se guardan también en el apartado Comparecencias.</div>`) +
       `<div class="btns"><button class="btn primary" data-a="newComp" data-delito="${d.id}">${ico('plus', 'i-sm')} Nueva</button><button class="btn" data-a="linkComps" data-id="${d.id}">${ico('link', 'i-sm')} Vincular</button></div>`;
@@ -752,7 +772,7 @@ V.delito = p => {
         ${d.notas ? `<p class="dnotas">${esc(d.notas)}</p>` : ''}
         <div class="drev"><span class="mono">${d.revisado ? 'Revisado el ' + fmtDate(d.revisado) : 'Sin revisar'}</span><button class="lnk" data-a="revisado" data-id="${d.id}">Marcar revisado hoy</button></div>
       </div>
-      <nav class="tabs" role="tablist">${Object.keys(CATS).map(k => `<button class="tab" role="tab" aria-selected="${tab === k}" data-a="setTab" data-tab="${k}">${CATS[k].tab}<span class="c">${cnt[k]}</span></button>`).join('')}</nav>
+      <nav class="tabs" role="tablist">${Object.keys(CATS).map(k => `<button class="tab" role="tab" aria-selected="${tab === k}" data-a="setTab" data-tab="${k}">${CATS[k].tab}${k === 'comp' && !S.mk ? ico('lock', 'i-xs') : `<span class="c">${cnt[k]}</span>`}</button>`).join('')}</nav>
       <div>${tb}</div>`,
   };
 };
@@ -775,21 +795,26 @@ V.delitoForm = p => {
 };
 
 /* ---------- Piezas (artículos, sentencias, notas) ---------- */
-function attachField(dr, label = 'Adjunto', accept = 'application/pdf,image/*') {
+function attachField(dr, label = 'Adjunto', kinds = 'both') {
+  dr.alabel = label; dr.kinds = kinds;
   const f = dr.newFile ? { name: dr.newFile.name, size: dr.newFile.size, mime: dr.newFile.type } : (dr.rmFile ? null : dr.file);
-  return `<div class="field"><span class="lab">${label} <em>PDF o imagen, opcional</em></span><div id="attach">${f ?
-    `<div class="att">${ico(fileIcon(f))}<div class="att-m"><div class="att-n">${esc(f.name)}</div><div class="att-s">${fmtSize(f.size)}${dr.newFile ? ' · se cifrará al guardar' : ''}</div></div><button class="ib sm" data-a="rmAttach" aria-label="Quitar adjunto">${ico('close')}</button></div>` :
-    `<button class="btn ghost wfull" data-a="pickFile">${ico('upload', 'i-sm')} Adjuntar PDF o imagen</button>`}</div><input type="file" id="file" accept="${accept}" hidden></div>`;
+  const btn = (id, icon, txt) => `<button class="btn ghost" data-a="pickFile" data-i="${id}">${ico(icon, 'i-sm')} ${txt}</button>`;
+  const inputs = `${kinds !== 'pdf' ? '<input type="file" id="fileimg" accept="image/*" hidden>' : ''}${kinds !== 'img' ? '<input type="file" id="filepdf" accept="application/pdf" hidden>' : ''}`;
+  return `<div class="field"><span class="lab">${label}${kinds === 'both' ? ' <em>opcional</em>' : ''}</span><div id="attach">${f ?
+    `<div class="att">${ico(fileIcon(f))}<div class="att-m"><div class="att-n">${esc(f.name)}</div><div class="att-s">${fmtSize(f.size)}${dr.newFile ? ' · pendiente de guardar' : ''}</div></div><button class="ib sm" data-a="rmAttach" aria-label="Quitar adjunto">${ico('close')}</button></div>` :
+    `<div class="btns" style="margin-top:0">${kinds !== 'pdf' ? btn('fileimg', 'img', 'Foto o galería') : ''}${kinds !== 'img' ? btn('filepdf', 'pdf', 'PDF') : ''}</div>`}</div>${inputs}</div>`;
 }
 function bindAttach() {
-  const inp = $('#file'); if (!inp) return;
-  inp.addEventListener('change', () => { S.picking = 0; const f = inp.files[0]; if (!f) return; S.draft.newFile = f; S.draft.rmFile = false; refreshAttach(); });
-  inp.addEventListener('cancel', () => { S.picking = 0; });
+  ['fileimg', 'filepdf'].forEach(id => {
+    const inp = $('#' + id); if (!inp) return;
+    inp.addEventListener('change', () => { S.picking = 0; const f = inp.files[0]; if (!f) return; S.draft.newFile = f; S.draft.rmFile = false; refreshAttach(); });
+    inp.addEventListener('cancel', () => { S.picking = 0; });
+  });
 }
-function refreshAttach() { const box = $('#attach'); if (!box) return; const tmp = document.createElement('div'); tmp.innerHTML = attachField(S.draft); box.replaceWith($('#attach', tmp)); }
+function refreshAttach() { const box = $('#attach'); if (!box) return; const tmp = document.createElement('div'); tmp.innerHTML = attachField(S.draft, S.draft.alabel, S.draft.kinds); box.replaceWith($('#attach', tmp)); }
 async function commitAttach(rec) {
   const dr = S.draft;
-  if (dr.newFile) { const old = rec.file; rec.file = await ingest(dr.newFile); if (old) await delFile(old.id); }
+  if (dr.newFile) { const old = rec.file; rec.file = await ingest(dr.newFile, rec.t === 'comp'); if (old) await delFile(old.id); }
   else if (dr.rmFile && rec.file) { await delFile(rec.file.id); delete rec.file; }
 }
 
@@ -933,7 +958,7 @@ V.recursoForm = p => {
     crumb: `${p.id ? 'Editar' : 'Nuevo'} recurso · ${kind === 'texto' ? 'texto' : kind === 'imagen' ? 'imagen' : 'PDF'}`,
     actions: `<button class="btn primary save" data-a="saveRecurso" data-id="${p.id || ''}" data-kind="${kind}">Guardar</button>`,
     body: `<div class="form">
-      ${kind !== 'texto' ? attachField(S.draft, kind === 'imagen' ? 'Imagen' : 'Documento', kind === 'imagen' ? 'image/*' : 'application/pdf') : ''}
+      ${kind !== 'texto' ? attachField(S.draft, kind === 'imagen' ? 'Imagen' : 'Documento', kind === 'imagen' ? 'img' : 'pdf') : ''}
       <div class="field"><label class="lab" for="f-titulo">Título</label><input class="in" id="f-titulo" value="${esc(r.titulo || '')}" placeholder="${kind === 'texto' ? 'Teléfonos útiles' : kind === 'imagen' ? 'Cuadro de medidas de seguridad del DNI' : 'Código Penal (BOE)'}" autocomplete="off"></div>
       <div class="field"><label class="lab" for="f-carpeta">Apartado</label><select class="in" id="f-carpeta"><option value="">Sin apartado</option>${cs.map(c => `<option value="${c.id}" ${r.carpeta === c.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></div>
       <div class="field"><label class="lab" for="f-texto">${kind === 'texto' ? 'Texto' : 'Nota <em>opcional</em>'}</label><textarea class="in ${kind === 'texto' ? 'big' : ''}" id="f-texto" placeholder="${kind === 'texto' ? 'Escribe o pega el texto' : 'Para qué sirve, de dónde lo sacaste…'}">${esc(r.texto || '')}</textarea></div>
@@ -1014,18 +1039,21 @@ function stepsEditor(t) {
       ${t === 'guia' ? `<textarea class="in" data-f="texto" data-i="${i}" placeholder="Qué hay que hacer en este paso" style="min-height:84px">${esc(s.texto || '')}</textarea>` :
         `<input class="in" data-f="nombre" data-i="${i}" value="${esc(s.nombre || '')}" placeholder="Diligencia de…" autocomplete="off"><textarea class="in" data-f="detalle" data-i="${i}" placeholder="Notas o texto tipo (opcional)" style="min-height:70px">${esc(s.detalle || '')}</textarea>`}
       ${f ? `<div class="mini">${ico(fileIcon(f), 'i-sm')}<span>${esc(f.name)}</span><button class="ib sm" data-a="stepRmFile" data-i="${i}" aria-label="Quitar adjunto">${ico('close')}</button></div>` :
-        `<button class="btn ghost save" data-a="stepFile" data-i="${i}">${ico(t === 'guia' ? 'img' : 'upload', 'i-sm')} ${t === 'guia' ? 'Añadir captura' : 'Adjuntar PDF o imagen'}</button>`}
+        (t === 'guia' ? `<button class="btn ghost save" data-a="stepFile" data-k="img" data-i="${i}">${ico('img', 'i-sm')} Añadir captura</button>` :
+          `<div class="btns" style="margin-top:0"><button class="btn ghost save" data-a="stepFile" data-k="img" data-i="${i}">${ico('img', 'i-sm')} Foto o galería</button><button class="btn ghost save" data-a="stepFile" data-k="pdf" data-i="${i}">${ico('pdf', 'i-sm')} PDF</button></div>`)}
     </div>`;
   }).join('')}</div>
   <button class="add" data-a="stepAdd">${ico('plus', 'i-sm')} Añadir ${K.item}</button>
-  <input type="file" id="stepfile" accept="${t === 'guia' ? 'image/*' : 'application/pdf,image/*'}" hidden>`;
+  <input type="file" id="stepimg" accept="image/*" hidden>${t === 'guia' ? '' : '<input type="file" id="steppdf" accept="application/pdf" hidden>'}`;
 }
 function syncSteps() { $$('[data-f][data-i]').forEach(el => { const s = S.draft.pasos[+el.dataset.i]; if (s) s[el.dataset.f] = el.value; }); }
 function refreshSteps() { syncSteps(); const box = $('#steps-box'); if (box) { box.innerHTML = stepsEditor(S.draft.t); bindStepFile(); } }
 function bindStepFile() {
-  const inp = $('#stepfile'); if (!inp) return;
-  inp.addEventListener('change', () => { S.picking = 0; const f = inp.files[0]; const s = S.draft.pasos[S.draft.stepTarget]; if (f && s) { s._new = f; s._rm = false; refreshSteps(); } });
-  inp.addEventListener('cancel', () => { S.picking = 0; });
+  ['stepimg', 'steppdf'].forEach(id => {
+    const inp = $('#' + id); if (!inp) return;
+    inp.addEventListener('change', () => { S.picking = 0; const f = inp.files[0]; const s = S.draft.pasos[S.draft.stepTarget]; if (f && s) { s._new = f; s._rm = false; refreshSteps(); } });
+    inp.addEventListener('cancel', () => { S.picking = 0; });
+  });
 }
 V.ordForm = p => {
   const t = p.t || get(p.id).t; const K = KIND[t];
@@ -1056,16 +1084,17 @@ V.ajustes = () => {
   return {
     crumb: 'Ajustes',
     body: `<div class="head"><h1 class="ttl">Ajustes</h1></div>
-      <h2 class="h2" style="padding-top:6px">Seguridad</h2>
+      <h2 class="h2" style="padding-top:6px">Comparecencias protegidas</h2>
       <div class="set">
-        <button class="set-r" data-a="toggleBio"><span class="row-ic">${ico('finger')}</span><span class="row-m"><span class="row-t">Desbloquear con huella</span><span class="row-s">${bioOn ? (S.bio.mode === 'prf' ? 'Activada · la huella protege la clave' : 'Activada') : 'Desactivada'}</span></span><span class="sw" role="switch" aria-checked="${bioOn}"></span></button>
-        <button class="set-r" data-a="changePin"><span class="row-ic">${ico('lock')}</span><span class="row-m"><span class="row-t">Cambiar código</span><span class="row-s">${PIN_LEN} cifras</span></span>${ico('chev', 'i-dim')}</button>
+        ${S.hasVault ? '' : `<button class="set-r" data-a="makeCode"><span class="row-ic">${ico('lock')}</span><span class="row-m"><span class="row-t">Crear código</span><span class="row-s">${PIN_LEN} cifras. Se crea solo al abrir Comparecencias</span></span>${ico('chev', 'i-dim')}</button>`}
+        ${S.hasVault ? `<button class="set-r" data-a="toggleBio"><span class="row-ic">${ico('finger')}</span><span class="row-m"><span class="row-t">Abrir con huella</span><span class="row-s">${bioOn ? 'Activada' : 'Desactivada'}</span></span><span class="sw" role="switch" aria-checked="${bioOn}"></span></button>
+        <button class="set-r" data-a="changePin"><span class="row-ic">${ico('lock')}</span><span class="row-m"><span class="row-t">Cambiar código</span><span class="row-s">${PIN_LEN} cifras</span></span>${ico('chev', 'i-dim')}</button>` : ''}
         <div class="set-r" style="flex-direction:column;align-items:stretch;gap:10px"><span class="row-m"><span class="row-t">Bloqueo automático</span><span class="row-s">Al salir de la app o del navegador</span></span>
           <div class="seg">${[[0, 'Al momento'], [60, '1 min'], [300, '5 min']].map(([v, l]) => `<button data-a="setAutolock" data-v="${v}" aria-pressed="${al === v}">${l}</button>`).join('')}</div></div>
       </div>
       <h2 class="h2">Copia de seguridad</h2>
       <div class="set">
-        <button class="set-r" data-a="exportBk"><span class="row-ic">${ico('download')}</span><span class="row-m"><span class="row-t">Exportar copia cifrada</span><span class="row-s">Se abre solo con tu código actual</span></span>${ico('chev', 'i-dim')}</button>
+        <button class="set-r" data-a="exportBk"><span class="row-ic">${ico('download')}</span><span class="row-m"><span class="row-t">Exportar copia</span><span class="row-s">Solo las comparecencias van cifradas</span></span>${ico('chev', 'i-dim')}</button>
         <button class="set-r" data-a="importBk"><span class="row-ic">${ico('upload')}</span><span class="row-m"><span class="row-t">Restaurar una copia</span><span class="row-s">Sustituye lo que hay ahora</span></span>${ico('chev', 'i-dim')}</button>
         <input type="file" id="bkfile" accept=".json,application/json" hidden>
       </div>
@@ -1077,14 +1106,15 @@ V.ajustes = () => {
       </div>
       <h2 class="h2">Dónde están tus datos</h2>
       <div class="prose">
-        <p>Todo lo que guardas se cifra con <b>AES-256</b> antes de escribirse y se queda <b>solo en este dispositivo</b>. La app no tiene servidor ni cuenta y no envía tus datos a ningún sitio.</p>
-        <p>La clave sale de tu código de ${PIN_LEN} cifras. Sin él no se puede leer nada, <b>ni siquiera para recuperarlo</b>: si lo olvidas, solo queda borrar y empezar de nuevo o restaurar una copia de la que recuerdes el código.</p>
+        <p>Todo se guarda <b>solo en este dispositivo</b>. La app no tiene servidor ni cuenta y no envía tus datos a ningún sitio.</p>
+        <p>Las <b>comparecencias y sus adjuntos</b> se cifran con <b>AES-256</b> y solo se abren con tu código de ${PIN_LEN} cifras o tu huella. Si olvidas el código no hay forma de recuperarlas.</p>
+        <p>El resto (delitos, recursos, guías y diligencias) se abre sin código y <b>no está cifrado</b>. La copia de seguridad contiene todo, con las comparecencias cifradas.</p>
         <p>Las tipografías y el visor de PDF van dentro de la app, así que <b>no se conecta a internet</b> para nada y funciona sin cobertura.</p>
         <p>Consejo: evita guardar datos que identifiquen a personas (nombres, documentos) en comparecencias y guías; usa marcadores como [NOMBRE] o [NIE].</p>
-        ${EMBED ? `<p><b>Versión de prueba.</b> Dentro de Claude la huella y la exportación de copias pueden no estar disponibles; funcionan en la versión instalada.</p>` : ''}
+        ${EMBED ? `<p><b>Versión de prueba.</b> Dentro de Claude la huella y la exportación de copias pueden no estar disponibles.</p>` : ''}
       </div>`,
     after() {
-      $('#bkfile').addEventListener('change', e => { S.picking = 0; const f = e.target.files[0]; if (f) startImport(f, true); });
+      $('#bkfile').addEventListener('change', e => { S.picking = 0; const f = e.target.files[0]; if (f) startImport(f); });
       $('#bkfile').addEventListener('cancel', () => { S.picking = 0; });
       if (navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(e => { const u = $('#usage'); if (u && e.usage) u.textContent = `${plural(counts, 'elemento', 'elementos')} · ${fmtSize(e.usage)} en este móvil`; }).catch(() => { });
     },
@@ -1200,7 +1230,10 @@ async function withBusy(btn, fn) { if (btn) btn.disabled = true; try { await fn(
 const A = {
   back: () => back(),
   toMDD: () => { location.href = './'; },
-  lockNow: () => lock(),
+  lockNow: () => { lockVault(); toast('Comparecencias bloqueadas'); },
+  openComps: () => needVault(() => go('comps')),
+  unlockComps: () => needVault(() => render('refresh')),
+  makeCode: () => needVault(() => render('refresh'), true),
   setF: el => setParams({ f: el.dataset.f }),
   setTab: el => setParams({ tab: el.dataset.tab }),
   async fav(el) { const r = get(el.dataset.id); r.fav = !r.fav; await save(r); render('refresh'); toast(r.fav ? 'Añadido a favoritos' : 'Quitado de favoritos'); },
@@ -1241,12 +1274,12 @@ const A = {
       await commitAttach(x); await save(x); S.draft = null; back(); toast('Guardado');
     });
   },
-  pickFile: () => pickFile('file'),
+  pickFile: el => pickFile(el.dataset.i),
   rmAttach: () => { if (S.draft.newFile) S.draft.newFile = null; else S.draft.rmFile = true; refreshAttach(); },
   async openFile(el) { const r = get(el.dataset.id); if (r && r.file) openViewer(r.file, r.titulo || r.nombre); },
 
   // comparecencias
-  newComp: el => { S.draft = null; go('compForm', el.dataset.delito ? { delito: el.dataset.delito } : {}); },
+  newComp: el => needVault(() => { S.draft = null; go('compForm', el.dataset.delito ? { delito: el.dataset.delito } : {}); }),
   editComp: el => { S.draft = null; go('compForm', { id: el.dataset.id }); },
   async pickDelitos() {
     const ds = all('delito').sort(byName);
@@ -1329,7 +1362,7 @@ const A = {
   stepAdd() { syncSteps(); S.draft.pasos.push({ id: uid() }); refreshSteps(); const tas = $$('#steps-ed .step-ed'); const last = tas[tas.length - 1]; if (last) { last.scrollIntoView({ block: 'center', behavior: 'smooth' }); const f = last.querySelector('.in'); f && f.focus(); } },
   stepMove(el) { syncSteps(); const i = +el.dataset.i, j = i + (+el.dataset.d); const p = S.draft.pasos; if (j < 0 || j >= p.length) return; [p[i], p[j]] = [p[j], p[i]]; refreshSteps(); },
   stepDel(el) { syncSteps(); const s = S.draft.pasos[+el.dataset.i]; S.draft.removed = [...(S.draft.removed || []), ...[s.img, s.file].filter(Boolean).map(f => f.id)]; S.draft.pasos.splice(+el.dataset.i, 1); refreshSteps(); },
-  stepFile(el) { syncSteps(); S.draft.stepTarget = +el.dataset.i; pickFile('stepfile'); },
+  stepFile(el) { syncSteps(); S.draft.stepTarget = +el.dataset.i; pickFile('step' + el.dataset.k); },
   stepRmFile(el) { syncSteps(); const s = S.draft.pasos[+el.dataset.i]; if (s._new) s._new = null; else s._rm = true; refreshSteps(); },
   async saveOrd(el) {
     syncSteps(); const t = el.dataset.t; const titulo = val('f-titulo'); if (!need(titulo, 'Ponle un título')) return;
@@ -1383,10 +1416,9 @@ const A = {
       if (!await confirmSheet({ title: '¿Desactivar la huella?', text: 'Seguirás entrando con tu código.', ok: 'Desactivar' })) return;
       await metaDel('bio'); S.bio = null; render('refresh'); toast('Huella desactivada'); return;
     }
-    await enableBio();
-    render('refresh');
+    needVault(async () => { await enableBio(); render('refresh'); }, true);
   },
-  changePin: () => showLock('cambiar'),
+  changePin: () => needVault(() => showLock('cambiar'), true),
   exportBk: () => exportBackup(),
   importBk: () => pickFile('bkfile'),
   async quitarEj() {
@@ -1399,9 +1431,10 @@ const A = {
   async wipe() {
     if (!await confirmSheet({ title: '¿Borrar todo?', text: 'Se eliminan todos los datos y el código de este móvil. Si no tienes una copia exportada, no se podrá recuperar nada.', ok: 'Borrar todo', danger: true })) return;
     if (!await confirmSheet({ title: 'Última confirmación', text: 'Esta acción es definitiva.', ok: 'Sí, borrar todo', danger: true })) return;
-    lock(true); idb.close();
+    lockVault(); idb.close();
     await new Promise(r => { const q = indexedDB.deleteDatabase(DB_NAME); q.onsuccess = q.onerror = q.onblocked = () => r(); });
-    idb = await openDB(); S.bio = null; S.settings = { autolock: 0 }; showLock('nuevo'); toast('Todo borrado');
+    idb = await openDB(); S.bio = null; S.hasVault = false; S.settings = { autolock: 0 };
+    await metaSet('seeded', true); await loadAll(); R.stack = [{ v: 'home', p: {} }]; if (HIST) history.replaceState({ d: 1 }, ''); render('back'); toast('Todo borrado');
   },
 };
 
@@ -1422,30 +1455,42 @@ document.addEventListener('click', e => {
 });
 
 /* =========================================================
-   BLOQUEO, CÓDIGO Y HUELLA
+   COMPARECENCIAS PROTEGIDAS: código y huella
+   Solo las comparecencias (y sus adjuntos) van cifradas.
+   El resto de la app se abre sin código.
    ========================================================= */
 const LOCK_TXT = {
-  nuevo: ['Crea tu código', `Elige ${PIN_LEN} cifras. Con ellas se cifran tus datos y solo tú puedes abrirlos.`],
+  nuevo: ['Crea tu código', `Protegerá tus comparecencias. Elige ${PIN_LEN} cifras.`],
   repite: ['Repite el código', 'Para asegurarnos de que lo recuerdas.'],
-  entrar: ['Introduce tu código', ''],
-  importar: ['Código de la copia', 'El que tenías cuando la exportaste.'],
+  entrar: ['Comparecencias', 'Introduce tu código para abrirlas.'],
+  migrar: ['Actualizar', 'Introduce tu código una vez para pasar tus datos al nuevo sistema.'],
   cambiar: ['Nuevo código', `Elige ${PIN_LEN} cifras nuevas.`],
   cambiar2: ['Repite el nuevo código', ''],
 };
+let pending = null, pendingNoOffer = false;
+function needVault(then, noOffer) {
+  if (S.mk) { then && then(); return; }
+  pending = then || null; pendingNoOffer = !!noOffer;
+  showLock(S.hasVault ? 'entrar' : 'nuevo');
+  if (S.hasVault && S.bio) setTimeout(() => bioUnlock(true), 350);
+}
 function showLock(mode, msg = '') {
   S.lk = { mode, pin: '', first: S.lk && (mode === 'repite' || mode === 'cambiar2') ? S.lk.first : '', err: msg };
-  if (!['cambiar', 'cambiar2', 'importar'].includes(mode)) S.unlocked = false;
-  document.body.classList.remove('noscroll'); closeViewer(); closeSheet();
-  drawLock(); window.scrollTo(0, 0);
+  closeSheet(); $('#lockov').hidden = false; document.body.classList.add('noscroll');
+  drawLock(); $('#lockov').scrollTop = 0;
+}
+function hideLock() {
+  S.lk = null; const o = $('#lockov'); o.hidden = true; o.innerHTML = '';
+  if (!S.sheet && $('#viewer').hidden) document.body.classList.remove('noscroll');
 }
 function drawLock() {
   const lk = S.lk; const [t, help] = LOCK_TXT[lk.mode];
-  const canBio = lk.mode === 'entrar' && S.bio;
-  const cancel = ['cambiar', 'cambiar2', 'importar'].includes(lk.mode);
-  app.innerHTML = `<div class="lock" id="lock">
+  const canBio = (lk.mode === 'entrar' || lk.mode === 'migrar') && S.bio;
+  const cancel = lk.mode !== 'migrar';
+  $('#lockov').innerHTML = `<div class="lock" id="lock">
     <div class="lock-top">
       <div class="seal">${ico('lock', 'i-lg')}</div>
-      <h1>Trabajo</h1>
+      <h1>${lk.mode === 'migrar' ? 'Trabajo' : 'Comparecencias'}</h1>
       <p class="lock-msg">${esc(t)}</p>
       ${help ? `<p class="lock-help">${esc(help)}</p>` : ''}
       <div class="dots" id="dots" aria-label="${lk.pin.length} de ${PIN_LEN} cifras">${Array.from({ length: PIN_LEN }, (_, i) => `<span class="dot ${i < lk.pin.length ? 'on' : ''}"></span>`).join('')}</div>
@@ -1458,12 +1503,10 @@ function drawLock() {
       <button class="key ghost" data-a="keyDel" aria-label="Borrar cifra">${ico('bksp')}</button>
     </div>
     <div class="lock-foot">
-      ${lk.mode === 'nuevo' ? `<button class="lnk" data-a="importFromSetup">Tengo una copia de seguridad</button><input type="file" id="bkfile0" accept=".json,application/json" hidden>` : ''}
       ${cancel ? `<button class="lnk" data-a="lockCancel">Cancelar</button>` : ''}
       <span class="mono">Cifrado AES-256 · solo en este dispositivo</span>
     </div>
   </div>`;
-  const inp0 = $('#bkfile0'); if (inp0) { inp0.addEventListener('change', e => { S.picking = 0; const f = e.target.files[0]; if (f) startImport(f, false); }); inp0.addEventListener('cancel', () => { S.picking = 0; }); }
 }
 function updateDots() { $$('#dots .dot').forEach((d, i) => d.classList.toggle('on', i < S.lk.pin.length)); }
 function lockError(msg) {
@@ -1475,8 +1518,7 @@ const L = {
   key(el) { const lk = S.lk; if (!lk || lk.busy || lk.pin.length >= PIN_LEN) return; lk.pin += el.dataset.k; $('#lock-err').textContent = ''; updateDots(); if (lk.pin.length === PIN_LEN) setTimeout(submitPin, 90); },
   keyDel() { const lk = S.lk; if (!lk || lk.busy) return; lk.pin = lk.pin.slice(0, -1); updateDots(); },
   bio: () => bioUnlock(false),
-  importFromSetup: () => pickFile('bkfile0'),
-  lockCancel() { S.importPack = null; S.lk = null; if (S.mkRaw) { S.unlocked = true; render('refresh'); } else showLock('nuevo'); },
+  lockCancel() { pending = null; hideLock(); },
 };
 document.addEventListener('keydown', e => {
   if (!S.lk || !$('#lock')) return;
@@ -1493,60 +1535,50 @@ async function submitPin() {
     setBusy(true);
     try {
       const raw = rnd(32); await writeVault(pin, raw); await setMK(raw);
-      await metaDel('bio'); S.bio = null;
-      await seedExamples();
-      await afterUnlock();
-      setTimeout(offerBio, 400);
-    } catch (e) { console.error(e); showLock('nuevo', 'No se ha podido crear el almacén cifrado.'); }
+      await metaDel('bio'); S.bio = null; S.hasVault = true;
+      const p = pending, no = pendingNoOffer; pending = null; pendingNoOffer = false;
+      hideLock(); toast('Código creado');
+      if (p) p(); else render('refresh');
+      if (!no) setTimeout(offerBio, 500);
+    } catch (e) { console.error(e); showLock('nuevo', 'No se ha podido crear el código.'); }
     return;
   }
-  if (lk.mode === 'entrar') {
+  if (lk.mode === 'entrar' || lk.mode === 'migrar') {
     const fails = (await metaGet('fails')) || { n: 0, until: 0 };
     if (fails.until > Date.now()) return lockError(`Demasiados intentos. Espera ${Math.ceil((fails.until - Date.now()) / 1000)} s.`);
     setBusy(true);
     const raw = await tryVault(await metaGet('vault'), pin);
     if (!raw) {
       fails.n++; fails.until = fails.n >= 5 ? Date.now() + Math.min(300, 30 * 2 ** (fails.n - 5)) * 1000 : 0;
-      await metaSet('fails', fails); setBusy(false); $('.lock-msg').textContent = LOCK_TXT.entrar[0];
+      await metaSet('fails', fails); setBusy(false); $('.lock-msg').textContent = LOCK_TXT[lk.mode][0];
       return lockError(fails.until ? `Código incorrecto. Espera ${Math.ceil((fails.until - Date.now()) / 1000)} s.` : `Código incorrecto${fails.n >= 3 ? ` · ${5 - fails.n} intento${5 - fails.n === 1 ? '' : 's'} antes de esperar` : ''}`);
     }
-    await metaSet('fails', { n: 0, until: 0 }); await setMK(raw); await afterUnlock(); return;
+    await vaultOpened(raw); return;
   }
   if (lk.mode === 'cambiar') { S.lk.first = pin; return showLock('cambiar2'); }
   if (lk.mode === 'cambiar2') {
     if (pin !== lk.first) return showLock('cambiar', 'No coincide. Vuelve a elegirlo.');
-    setBusy(true); await writeVault(pin, S.mkRaw); S.lk = null; S.unlocked = true; render('refresh'); toast('Código cambiado'); return;
-  }
-  if (lk.mode === 'importar') {
-    setBusy(true);
-    const pk = S.importPack;
-    const vault = { salt: unb64(pk.vault.salt), iter: pk.vault.iter, iv: unb64(pk.vault.iv), wrapped: unb64(pk.vault.wrapped) };
-    const raw = await tryVault(vault, pin);
-    if (!raw) { setBusy(false); $('.lock-msg').textContent = LOCK_TXT.importar[0]; return lockError('Ese no es el código de la copia'); }
-    try {
-      await tx('recs', 'readwrite', s => s.clear()); await tx('files', 'readwrite', s => s.clear());
-      for (const r of pk.recs) await tx('recs', 'readwrite', s => s.put({ id: r.id, iv: unb64(r.iv), ct: unb64(r.ct) }));
-      for (const f of pk.files) await tx('files', 'readwrite', s => s.put({ id: f.id, iv: unb64(f.iv), ct: unb64(f.ct) }));
-      await metaSet('vault', { v: 1, ...vault }); await metaDel('bio'); S.bio = null; await metaSet('fails', { n: 0, until: 0 });
-      for (const u of S.urls.values()) URL.revokeObjectURL(u); S.urls.clear();
-      S.importPack = null; await setMK(raw); R.stack = [{ v: 'home', p: {} }]; await afterUnlock();
-      toast(`Copia restaurada · ${plural(pk.recs.length, 'elemento', 'elementos')}`);
-    } catch (e) { console.error(e); showLock('importar', 'No se ha podido restaurar la copia.'); }
+    setBusy(true); await writeVault(pin, S.mkRaw); hideLock(); render('refresh'); toast('Código cambiado'); return;
   }
 }
-async function afterUnlock() {
-  await loadAll(); S.lk = null; S.unlocked = true; S.q = '';
-  if (HIST) history.replaceState({ d: 1 }, '');
-  render('back');
-  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch { }
+async function vaultOpened(raw) {
+  const migrating = S.lk && S.lk.mode === 'migrar';
+  await setMK(raw); await metaSet('fails', { n: 0, until: 0 });
+  if (migrating) { await migrate(); await finishBoot(); hideLock(); return; }
+  await decryptComps();
+  const p = pending; pending = null; pendingNoOffer = false;
+  hideLock(); if (p) p(); else render('refresh');
 }
-function lock(silent) {
-  S.mk = null; S.mkRaw = null; S.recs.clear();
+function lockVault() {
+  if (!S.mk) return;
+  S.mk = null; S.mkRaw = null;
+  for (const [id, r] of [...S.recs]) if (r.t === 'comp') S.recs.delete(id);
   for (const u of S.urls.values()) URL.revokeObjectURL(u); S.urls.clear();
-  closeViewer(); closeSheet(); S.draft = null; S.q = '';
-  R.stack = [{ v: 'home', p: {} }];
-  S.unlocked = false;
-  if (!silent) showLock('entrar');
+  closeViewer(); closeSheet(); hideLock(); pending = null;
+  if (!S.unlocked) return;
+  if (R.stack.some(v => ['comps', 'comp', 'compForm'].includes(v.v))) {
+    R.stack = [{ v: 'home', p: {} }]; S.draft = null; if (HIST) history.replaceState({ d: 1 }, ''); render('back');
+  } else if (['home', 'delito'].includes(R.stack[R.stack.length - 1].v)) render('refresh');
 }
 
 /* --- huella: WebAuthn con extensión PRF ---------------- */
@@ -1559,6 +1591,7 @@ async function bioPossible() {
   try { return !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch { return false; }
 }
 async function enableBio() {
+  if (!S.mkRaw) return false;
   if (!await bioPossible()) { toast('Este navegador no ofrece desbloqueo con huella'); return false; }
   try {
     const prfSalt = rnd(32);
@@ -1594,7 +1627,7 @@ async function enableBio() {
   }
 }
 async function bioUnlock(auto) {
-  const b = S.bio; if (!b || !S.lk || S.lk.mode !== 'entrar' || S.lk.busy) return;
+  const b = S.bio; if (!b || !S.lk || !['entrar', 'migrar'].includes(S.lk.mode) || S.lk.busy) return;
   try {
     const opts = { challenge: rnd(32), allowCredentials: [{ type: 'public-key', id: b.credId }], userVerification: 'required', timeout: 60000 };
     if (b.mode === 'prf') opts.extensions = { prf: { eval: { first: b.prfSalt } } };
@@ -1605,30 +1638,66 @@ async function bioUnlock(auto) {
       if (!out) throw new Error('sin PRF');
       raw = new Uint8Array(await aesDec(await prfKey(out), b.iv, b.wrapped));
     } else raw = new Uint8Array(await aesDec(b.dk, b.iv, b.wrapped));
-    await setMK(raw); await metaSet('fails', { n: 0, until: 0 }); await afterUnlock();
-  } catch (e) { if (!auto) lockError('Huella no reconocida. Usa tu código.'); }
+    await vaultOpened(raw);
+  } catch (e) { if (!auto && S.lk) lockError('Huella no reconocida. Usa tu código.'); }
 }
 async function offerBio() {
-  if (!S.unlocked || !await bioPossible()) return;
-  if (await confirmSheet({ title: '¿Entrar con huella?', text: 'Podrás abrir la app con tu huella y el código quedará como respaldo. Puedes cambiarlo cuando quieras en Ajustes.', ok: 'Activar huella' })) { await enableBio(); render('refresh'); }
+  if (!S.mk || S.bio || !await bioPossible()) return;
+  if (await confirmSheet({ title: '¿Abrir las comparecencias con huella?', text: 'El código quedará como respaldo. Puedes cambiarlo cuando quieras en Ajustes.', ok: 'Activar huella' })) { await enableBio(); render('refresh'); }
+}
+
+/* --- migración desde la versión que cifraba todo ---------- */
+async function migrate() {
+  const rows = await tx('recs', 'readonly', s => s.getAll());
+  const compFiles = new Set();
+  for (const r of rows) {
+    if (r.k) continue;
+    const o = JSON.parse(td.decode(await aesDec(S.mk, r.iv, r.ct)));
+    if (o.t === 'comp') { if (o.file) compFiles.add(o.file.id); await tx('recs', 'readwrite', s => s.put({ id: r.id, k: 'e', iv: r.iv, ct: r.ct })); }
+    else await tx('recs', 'readwrite', s => s.put({ id: r.id, k: 'p', o }));
+  }
+  const files = await tx('files', 'readonly', s => s.getAll());
+  for (const f of files) {
+    if (f.k) continue;
+    if (compFiles.has(f.id)) await tx('files', 'readwrite', s => s.put({ id: f.id, k: 'e', iv: f.iv, ct: f.ct }));
+    else { const buf = await aesDec(S.mk, f.iv, f.ct); await tx('files', 'readwrite', s => s.put({ id: f.id, k: 'p', buf })); }
+  }
+  await metaSet('seeded', true);
 }
 
 /* --- copias de seguridad ------------------------------- */
+const bz = x => x == null ? undefined : b64(x);
 async function exportBackup() {
   try {
     const v = await metaGet('vault'); const recs = await tx('recs', 'readonly', s => s.getAll()); const files = await tx('files', 'readonly', s => s.getAll());
-    const pack = { app: 'trabajo', formato: 1, fecha: new Date().toISOString(), vault: { salt: b64(v.salt), iter: v.iter, iv: b64(v.iv), wrapped: b64(v.wrapped) }, recs: recs.map(r => ({ id: r.id, iv: b64(r.iv), ct: b64(r.ct) })), files: files.map(f => ({ id: f.id, iv: b64(f.iv), ct: b64(f.ct) })) };
+    const pack = {
+      app: 'trabajo', formato: 2, fecha: new Date().toISOString(),
+      vault: v ? { salt: b64(v.salt), iter: v.iter, iv: b64(v.iv), wrapped: b64(v.wrapped) } : null,
+      recs: recs.map(r => ({ id: r.id, k: r.k, o: r.o, iv: bz(r.iv), ct: bz(r.ct) })),
+      files: files.map(f => ({ id: f.id, k: f.k, iv: bz(f.iv), ct: bz(f.ct), buf: bz(f.buf) })),
+    };
     const blob = new Blob([JSON.stringify(pack)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `trabajo-copia-${toDateInput(Date.now())}.json`;
     S.picking = Date.now(); document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => { URL.revokeObjectURL(a.href); S.picking = 0; }, 8000);
     toast(EMBED ? `Copia preparada (${fmtSize(blob.size)}). En la versión de prueba la descarga puede estar bloqueada.` : `Copia guardada en Descargas · ${fmtSize(blob.size)}`);
   } catch (e) { console.error(e); toast('No se ha podido exportar la copia'); }
 }
-async function startImport(file, fromSettings) {
+async function startImport(file) {
   let pk; try { pk = JSON.parse(await file.text()); } catch { toast('Ese archivo no es una copia de Trabajo'); return; }
-  if (!pk || pk.app !== 'trabajo' || !pk.vault || !Array.isArray(pk.recs)) { toast('Ese archivo no es una copia de Trabajo'); return; }
-  if (fromSettings && !await confirmSheet({ title: '¿Restaurar esta copia?', text: `Copia del ${esc(fmtDate(Date.parse(pk.fecha) || Date.now()))} con ${plural(pk.recs.length, 'elemento', 'elementos')}. Sustituirá todo lo que hay ahora y el código pasará a ser el de la copia.`, ok: 'Restaurar', danger: true })) return;
-  pk.files = pk.files || []; S.importPack = pk; showLock('importar');
+  if (!pk || pk.app !== 'trabajo' || !Array.isArray(pk.recs)) { toast('Ese archivo no es una copia de Trabajo'); return; }
+  if (pk.formato !== 2) { toast('Es una copia de una versión anterior y no se puede restaurar'); return; }
+  if (!await confirmSheet({ title: '¿Restaurar esta copia?', text: `Copia del ${esc(fmtDate(Date.parse(pk.fecha) || Date.now()))} con ${plural(pk.recs.length, 'elemento', 'elementos')}. Sustituirá todo lo que hay ahora.`, ok: 'Restaurar', danger: true })) return;
+  try {
+    const ub = x => x == null ? undefined : unb64(x);
+    await tx('recs', 'readwrite', s => s.clear()); await tx('files', 'readwrite', s => s.clear());
+    for (const r of pk.recs) await tx('recs', 'readwrite', s => s.put(r.k === 'p' ? { id: r.id, k: 'p', o: r.o } : { id: r.id, k: 'e', iv: ub(r.iv), ct: ub(r.ct) }));
+    for (const f of pk.files || []) await tx('files', 'readwrite', s => s.put(f.k === 'p' ? { id: f.id, k: 'p', buf: ub(f.buf) } : { id: f.id, k: 'e', iv: ub(f.iv), ct: ub(f.ct) }));
+    if (pk.vault) await metaSet('vault', { v: 1, salt: unb64(pk.vault.salt), iter: pk.vault.iter, iv: unb64(pk.vault.iv), wrapped: unb64(pk.vault.wrapped) }); else await metaDel('vault');
+    await metaDel('bio'); await metaSet('seeded', true); S.bio = null; S.hasVault = !!pk.vault;
+    S.mk = null; S.mkRaw = null; for (const u of S.urls.values()) URL.revokeObjectURL(u); S.urls.clear();
+    await loadAll(); R.stack = [{ v: 'home', p: {} }]; if (HIST) history.replaceState({ d: 1 }, ''); render('back');
+    toast(`Copia restaurada · ${plural(pk.recs.length, 'elemento', 'elementos')}`);
+  } catch (e) { console.error(e); toast('No se ha podido restaurar la copia'); }
 }
 
 /* --- ejemplos iniciales ----------------------------------- */
@@ -1641,7 +1710,6 @@ async function seedExamples() {
   await E({ id: uid(), t: 'pieza', cat: 'articulo', delito: d1.id, titulo: 'Art. 392 CP', ref: 'Código Penal · redacción vigente', texto: 'Ejemplo. Copia aquí el artículo desde el Código Penal consolidado del BOE o adjunta el PDF.' });
   await E({ id: uid(), t: 'pieza', cat: 'juris', delito: d1.id, titulo: 'Sentencia de ejemplo', ref: 'STS nº/año · ECLI', texto: 'Resumen de lo que dice la sentencia y por qué te sirve. Adjunta el PDF descargado del CENDOJ.' });
   await E({ id: uid(), t: 'pieza', cat: 'nota', delito: d1.id, titulo: 'Qué comprobar en el documento', texto: '· Soporte y medidas de seguridad\n· Que los datos coincidan con las bases de datos\n· Fotografía y firma' });
-  await E({ id: uid(), t: 'comp', titulo: 'Documento de identidad falso en control', fecha: Date.now(), delitos: [d1.id], texto: 'En [LOCALIDAD], siendo las [HH:MM] horas del día [FECHA], comparecen los funcionarios con carné profesional [Nº] y [Nº], quienes MANIFIESTAN:\n\nQue sobre las [HH:MM] horas, encontrándose de servicio de patrulla en [LUGAR], proceden a identificar a una persona que…\n\nQue el documento presentado muestra las siguientes anomalías: …\n\nY para que conste, firman la presente en el lugar y fecha indicados.' });
   const c1 = await E({ id: uid(), t: 'carpeta', nombre: 'Teléfonos y contactos' });
   await E({ id: uid(), t: 'carpeta', nombre: 'Leyes y códigos' });
   await E({ id: uid(), t: 'carpeta', nombre: 'Plantillas' });
@@ -1660,31 +1728,41 @@ async function seedExamples() {
   ]) });
 }
 
-/* --- bloqueo automático ---------------------------------- */
+
+/* --- bloqueo automático de las comparecencias --------------- */
 document.addEventListener('visibilitychange', () => {
-  if (!S.unlocked) return;
+  if (!S.mk) return;
   const picking = S.picking && Date.now() - S.picking < 180000;
   if (document.hidden) {
     if (picking) return;
     S.hiddenAt = Date.now();
-    if ((S.settings.autolock || 0) === 0) lock(); else document.body.classList.add('veil');
+    if ((S.settings.autolock || 0) === 0) lockVault();
   } else {
-    document.body.classList.remove('veil');
     if (picking) { S.picking = 0; return; }
-    if (S.hiddenAt && Date.now() - S.hiddenAt > (S.settings.autolock || 0) * 1000) lock();
+    if (S.hiddenAt && Date.now() - S.hiddenAt > (S.settings.autolock || 0) * 1000) lockVault();
     S.hiddenAt = 0;
   }
 });
 
 /* --- arranque ------------------------------------------ */
+async function finishBoot() {
+  const rows = await tx('recs', 'readonly', s => s.getAll());
+  if (!(await metaGet('seeded'))) { if (!rows.length) await seedExamples(); await metaSet('seeded', true); }
+  await loadAll(); S.unlocked = true; S.q = '';
+  if (HIST) history.replaceState({ d: 1 }, '');
+  R.stack = [{ v: 'home', p: {} }];
+  render('back');
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch { }
+}
 (async function boot() {
-  if (!window.crypto || !crypto.subtle || !window.indexedDB) { app.innerHTML = `<div class="lock"><p class="lock-msg">Este navegador no permite guardar datos cifrados. Ábrela en Chrome.</p></div>`; return; }
+  if (!window.crypto || !crypto.subtle || !window.indexedDB) { app.innerHTML = `<div class="lock"><p class="lock-msg">Este navegador no permite guardar datos de forma segura. Ábrela en Chrome.</p></div>`; return; }
   try { idb = await openDB(); }
   catch (e) { app.innerHTML = `<div class="lock"><p class="lock-msg">No se puede abrir el almacenamiento del navegador. Si estás en modo incógnito, ábrela en una ventana normal.</p></div>`; return; }
   try { S.settings = (await metaGet('settings')) || { autolock: 0 }; S.bio = (await metaGet('bio')) || null; } catch { }
-  const v = await metaGet('vault').catch(() => null);
-  showLock(v ? 'entrar' : 'nuevo');
-  if (v && S.bio) setTimeout(() => bioUnlock(true), 350);
+  const v = await metaGet('vault').catch(() => null); S.hasVault = !!v;
+  const rows = await tx('recs', 'readonly', s => s.getAll());
+  if (v && rows.some(r => !r.k)) { showLock('migrar'); if (S.bio) setTimeout(() => bioUnlock(true), 350); return; }
+  await finishBoot();
 })();
 </script>
 <script>/**
